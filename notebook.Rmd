@@ -30,9 +30,10 @@ library(mapview)
 library(kableExtra)
 ```
 
-### Study sites
+# Study sites
 
 ![](explos_overview.svg)
+
 ```{r, message=F, results='hide',fig.keep='all'}
 dp <- "../data/"
 sap <- here(dp, "/studyarea")
@@ -42,20 +43,13 @@ geo_exp <- st_read(here(sap, "all3explos.gpkg"))
 plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
 
 # landscapes
-lsc_ALB <- st_read(here(sap, "landscape_ALB.gpkg"))
-lsc_HAI <- st_read(here(sap, "landscape_HAI.gpkg"))
-lsc_SEG <- st_read(here(sap, "landscape_SEG.gpkg"))
-
-
-```
-
-
-```{r, eval=F, echo=F}
-
+lsc_ALB <- st_read(here(sap, "landscape_ALB_UTM.gpkg"))
+lsc_HAI <- st_read(here(sap, "landscape_HAI_UTM.gpkg"))
+lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
 
 ```
 
-
+We assume the landscapes from Naturräume und Großlandschaften Deutschlands https://metadaten.bfn.de/BfNMetaCat23/?lang=de#/datasets/iso/d15f6de3-8711-449a-aa65-678bdc251547 
 
 ```{r}
 # prep grassland display
@@ -93,7 +87,7 @@ rmaps+geomaps
 
 
 
-### Test Dataset
+# Test Dataset
 
 BExis Filters: 
 Taxonomic Term: Plants; Project: Botany (core); Forest: No; Above Ground: Yes; Biotic Data Type: Aggregated diversity
@@ -166,9 +160,7 @@ mapview(d_geo["shannon"],
 ```
 
 
-### Look into basis data (for the Swabian Alb)
-
-#### climate
+# climate and weather
 https://www.worldclim.org/data/bioclim.html Bioclim 
 
 ![](bioclim_codes.png)
@@ -182,25 +174,11 @@ bioclim_vars <- c("Ann_Mean_Temp", "Mean_Drnl_Rng", "Isotherm",
 ```
 
 
-
 ```{r}
 bioclim_ALB_UTM <- rast(here(dp, "/Basisdaten/climate/bioclim_ALB_UTM.tif"))
 bioclim_ALB_weather_UTM <- rast(here(dp, "/Basisdaten/weather/bioclim_ALB_weather_UTM.tif"))
 ```
 
-
-#### topography 
-
-
-```{r, results='hide',fig.keep='all'}
-top_ALB_UTM <- rast(here(dp, "/Basisdaten/topography/copernicus/ALB_top_UTM.tif"))
-
-par(mfrow=c(2,2))
-lapply( seq(nlyr(top_ALB_UTM)), function(i) {
-  plot(top_ALB_UTM[[i]], main=names(top_ALB_UTM[[i]]))
-})
-
-```
 
 #### weather 
 
@@ -214,9 +192,23 @@ lapply( seq(nlyr(bioclim_ALB_weather_UTM)), function(i) {
 })
 ```
 
+
+# topography 
+
+
+```{r, results='hide',fig.keep='all'}
+top_ALB_UTM <- rast(here(dp, "/Basisdaten/topography/copernicus/ALB_top_UTM.tif"))
+
+par(mfrow=c(2,2))
+lapply( seq(nlyr(top_ALB_UTM)), function(i) {
+  plot(top_ALB_UTM[[i]], main=names(top_ALB_UTM[[i]]))
+})
+
+```
+
 ## extent for visualization of basis and reference data 
 
-```{r}
+```{r, results='hide',fig.keep='all'}
 # plot(d_geo[d_geo$explrtr == "ALB", "shannon"])
 ex_ext_1 <- st_read(paste0(dp, "studyarea/ex_ext.shp"))
 ex_ext_2 <- st_read(paste0(dp, "studyarea/ex_ext_2.shp"))
@@ -225,7 +217,10 @@ top_ALB_ex <- crop(top_ALB_UTM, ex_ext_1)
 top_ALB_ex2 <- crop(top_ALB_UTM, ex_ext_2)
 
 # bioclim variables are only 6 values for this extent, so doesn't really make sense
+```
 
+
+```{r}
 mapview(d_geo[d_geo$explrtr == "ALB", "shannon"],
         cex="shannon",
         legend=TRUE, 
@@ -259,8 +254,17 @@ mapview(d_geo[d_geo$explrtr == "ALB", "shannon"],
 
 ```
 
+
+# Soil
+Bodenübersichtskarte 1:200.000, i.e. 1 cm = 0.2 km for whole Germany 
+https://geoviewer.bgr.de/mapapps/resources/apps/bodenatlas/index.html?lang=de&tab=boedenDeutschlands
+
+https://produktcenter.bgr.de/terraCatalog/DetailResult.do?fileIdentifier=154997F4-3C14-4A53-B217-8A7C7509E05F
+
+![](BUEK200.png)
+
 ### To do
-* Question @Jan: Spat9... == dem? 
+* Question @Meeting: ALB Explo Geometry > landscape unit 
 
 
 ### Research Design
@@ -272,4 +276,4 @@ IDs 31434 and 31435
 
 
 
-# References
+## References

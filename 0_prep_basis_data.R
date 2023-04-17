@@ -1,4 +1,7 @@
 # Preparing basis data further 
+# (if something's missing it can be found in notebook.Rmd )
+
+
 library(here)
 library(sf)
 library(terra)
@@ -49,6 +52,11 @@ writeRaster(gr_HAI_r, here(sap, "grassland_HAI_UTM_cat.tif"))
 writeRaster(gr_SEG_r, here(sap, "grassland_SEG_UTM_cat.tif"))
 
 
+# landscapes
+lsc_ALB <- st_read(here(sap, "landscape_ALB.gpkg"))
+lsc_HAI <- st_read(here(sap, "landscape_HAI.gpkg"))
+lsc_SEG <- st_read(here(sap, "landscape_SEG.gpkg"))
+
 
 # crop landscape to grassland extent for Schorfheide-Chorin
 lsc_SEG_UTM <- st_transform(lsc_SEG,utmproj)
@@ -60,8 +68,10 @@ lsc_ALB_UTM <- st_transform(lsc_ALB,utmproj)
 lsc_HAI_UTM <- st_transform(lsc_HAI,utmproj)
 
 st_write(lsc_ALB_UTM, here(sap, "landscape_ALB_UTM.gpkg"))
-st_write(lsc_HAI_UTM, here(sap, "landscape_HAI_UTM.gpkg"))
-st_write(lsc__UTM, here(sap, "landscape_ALB_UTM.gpkg"))
+st_write(lsc_HAI_UTM, here(sap, "landscape_HAI_UTM.gpkg"), 
+         append=F)
+st_write(lsc_SEG_cropped, here(sap, "landscape_SEG_UTM.gpkg"), 
+         append=F)
 
 
 
