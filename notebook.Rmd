@@ -21,6 +21,7 @@ toc: yes
 
 
 ```{r setup, include=FALSE}
+options(encoding = "UTF-8")
 knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
 library(here)
 library(sf)
@@ -45,6 +46,7 @@ plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
 # landscapes
 lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
 lsc_ALB <- st_read(here(sap, "landscape_ALB_UTM_extended.shp"))
+lsc_ALB$NAME <- "Swabian Alb"
 lsc_HAI <- st_read(here(sap, "landscape_HAI_UTM.gpkg"))
 lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
 
@@ -69,10 +71,6 @@ rmaps <- mapview(gr_ALB, na.color="#00000000", col.regions=my_pal)+
   mapview(gr_HAI, na.color="#00000000", col.regions=my_pal)
 
 
-```
-
-
-```{r}
 # display geometries etc.
 geomaps <- mapview(geo_exp, color="#b59018", alpha.regions=0, lwd=2)+
   mapview(lsc_HAI, alpha.regions=0, lwd=2, color="#5467ab")+
@@ -81,9 +79,8 @@ geomaps <- mapview(geo_exp, color="#b59018", alpha.regions=0, lwd=2)+
   mapview(plots_exp, col.regions="#edc647", cex=2, color="#edc647")
 
 
-rmaps+geomaps 
+rmaps+geomaps
   
-
 ```
 
 
@@ -268,6 +265,15 @@ https://produktcenter.bgr.de/terraCatalog/DetailResult.do?fileIdentifier=154997F
 ```{r}
 buek200_lscs <- st_read(here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"))
 unique(buek200_lscs$NAME)
+
+# try converting from latin1 to utf8
+buek200_lscs$Legende = iconv(buek200_lscs$Legende, "latin1", "UTF-8")
+buek200_lscs$Hinweis = iconv(buek200_lscs$Hinweis, "latin1", "UTF-8")
+
+buek200_lscs$NAME[buek200_lscs$NAME=="Schw\xe4bische Alb"] <- "Swabian Alb"
+buek200_lscs$NAME[buek200_lscs$NAME=="Rückland der Mecklenburg-Brandenburgischen Seenplatte"] <- "Rueckl_Mck_Seen"
+buek200_lscs$NAME[buek200_lscs$NAME=="Thüringer Becken und Randplatten"] <- "Thuer_Randpl"
+
 mapview(buek200_lscs, zcol="Symbol", legend=FALSE)
 
 ```
@@ -276,6 +282,13 @@ mapview(buek200_lscs, zcol="Symbol", legend=FALSE)
 ### To do
 * Question @Meeting: ALB Explo Geometry > landscape unit, extend, right? 
 
+TandemX Daten 12m ESA Research Proposal
+https://sss.terrasar-x.dlr.de/
+Mewing frequency 
+Landuse intensity
+Marvin Satellitenzeitreihe Landscape Metrics package Jakub Jahreskomposit (DLM Daten)
+Recherche welche Metrics sinnvoll wären 
+
 
 
 ### Research Design
@@ -283,7 +296,6 @@ https://www.biodiversity-exploratories.de/en/about-us/research-design/
 
 ### Better dataset
 IDs 31434 and 31435 
-
 
 
 
