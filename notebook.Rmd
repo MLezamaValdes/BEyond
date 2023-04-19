@@ -43,9 +43,11 @@ geo_exp <- st_read(here(sap, "all3explos.gpkg"))
 plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
 
 # landscapes
-lsc_ALB <- st_read(here(sap, "landscape_ALB_UTM.gpkg"))
+lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
+lsc_ALB <- st_read(here(sap, "landscape_ALB_UTM_extended.shp"))
 lsc_HAI <- st_read(here(sap, "landscape_HAI_UTM.gpkg"))
 lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
+
 
 ```
 
@@ -263,8 +265,17 @@ https://produktcenter.bgr.de/terraCatalog/DetailResult.do?fileIdentifier=154997F
 
 ![](BUEK200.png)
 
+```{r}
+buek200_lscs <- st_read(here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"))
+unique(buek200_lscs$NAME)
+mapview(buek200_lscs, zcol="Symbol", legend=FALSE)
+
+```
+
+
 ### To do
-* Question @Meeting: ALB Explo Geometry > landscape unit 
+* Question @Meeting: ALB Explo Geometry > landscape unit, extend, right? 
+
 
 
 ### Research Design

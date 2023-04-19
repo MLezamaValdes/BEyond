@@ -73,7 +73,30 @@ st_write(lsc_HAI_UTM, here(sap, "landscape_HAI_UTM.gpkg"),
 st_write(lsc_SEG_cropped, here(sap, "landscape_SEG_UTM.gpkg"), 
          append=F)
 
+# extend landscape ALB to incorporate all exploratories
+# there was a bug while writing (with drop table) after using st_union,
+# landscape_ALB_UTM_ext.shp was created in QGIS as intended in the script below.
 
+# lsc_ALB <- st_read(here(sap, "landscape_ALB_UTM.gpkg"))
+# geo_exp <- st_read(here(sap, "all3explos.gpkg"))
+# 
+# alb_exp <- geo_exp[1,]
+# lsc_ALB_ext <- st_union(alb_exp, lsc_ALB,by_feature = FALSE)
+# st_write(lsc_ALB_ext, here(sap, "landscape_ALB_UTM_extended.gpkg"))
+
+# make one file with all landscapes
+lsc_ALB <- st_read(here(sap, "landscape_ALB_UTM_extended.shp"))
+lsc_HAI <- st_read(here(sap, "landscape_HAI_UTM.gpkg"))
+lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
+
+
+lsc_ALB[,1:17] <- NULL
+st_geometry(lsc_ALB) <- "geom"
+names(lsc_ALB) <- names(lsc_HAI)
+
+lsc_all <- rbind(lsc_ALB, lsc_HAI, lsc_SEG)
+mapview(lsc_all)
+st_write(lsc_all, here(sap, "landscape_all.gpkg"))
 
 # Project climate rasters 
 
@@ -112,3 +135,20 @@ names(bioclim_ALB_weather) <- bioclim_vars
 bioclim_ALB_weather_UTM <- project(bioclim_ALB_weather, crs(d_geo))
 writeRaster(bioclim_ALB_weather_UTM, here(dp, 
                                           "/Basisdaten/weather/ALB_bioclim-2021_UTM.tif"))
+
+
+# read all soil data (BÜK200) 
+slp <- here(dp, "/Basisdaten/soil/")
+sldirs <- list.dirs(slp)[2:15]
+slshpp <- list.files(sldirs, pattern=".shp$", full.names = T)
+buek200_sheets <- lapply(seq(slshpp), function(i){
+  st_read(slshpp[i])
+})
+buek200 <- do.call(rbind, buek200_sheets)
+
+# crop to landscape geometries
+buek200_proj <- st_transform(buek200, crs(lsc_all))
+buek200_lscs <- st_intersection(lsc_all, buek200_proj)
+mapview(buek200_lscs)
+
+st_write(buek200_lscs, here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"))
