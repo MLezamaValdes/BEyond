@@ -1,0 +1,40 @@
+---
+title: "Basis-DLM"
+author: "Maite"
+format: html
+editor: visual
+theme: flatly
+---
+
+## Basis-DLM
+
+Not yet available:
+
+-   MV: kostenlos für wissenschaftliche Nutzung, bestellt über Formular, interne Nutzung
+
+-   Sachsen-Anhalt:Kostenanfrage gesendet (50 € für Grünland)
+
+-   BaWü: Kostenanfrage gesendet
+
+Available already:
+
+-   Brandenburg: kostenlos über https://geobroker.geobasis-bb.de/ bestellt und heruntergeladen
+
+-   Thüringen: Download von https://www.geoportal-th.de/de-de/Downloadbereiche/Download-Offene-Geodaten-Th%C3%BCringen/Download-ATKIS-Basis-DLM
+
+-   Bayern: heruntergeladen unter https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=atkis_basis_dlm
+
+-   Hessen (kleines Stück): heruntergeladen von https://gds.hessen.de/INTERSHOP/web/WFS/HLBG-Geodaten-Site/de_DE/-/EUR/ViewDownloadcenter-Start
+
+-   Niedersachsen (kleines Stück): heruntergeladen von https://opengeodata.lgln.niedersachsen.de/#bdlm
+
+```{r}
+library(here)
+library(sf)
+library(terra)
+library(raster)
+library(mapview)
+library(kableExtra)
+```
+
+

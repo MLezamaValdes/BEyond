@@ -55,6 +55,13 @@ lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
 
 We assume the landscapes from Naturräume und Großlandschaften Deutschlands https://metadaten.bfn.de/BfNMetaCat23/?lang=de#/datasets/iso/d15f6de3-8711-449a-aa65-678bdc251547 
 
+* Schwäbische Alb, 
+* Thüringer Becken und Randplatten
+** Thüringen
+** Sachsen-Anhalg
+** Hessen (kleiner Winkel)
+* Rückland der Mecklenburg-Brandenburgischen Seenplatte, Mecklenburgische Seenplatte
+
 ```{r}
 # prep grassland display
 gr_ALB <- raster(here(sap, "grassland_ALB_UTM_cat.tif"))
@@ -253,6 +260,12 @@ mapview(d_geo[d_geo$explrtr == "ALB", "shannon"],
 
 ```
 
+## 12m DEM from TandemX
+
+https://eoweb.dlr.de/ 
+![](eoweb_geoportal.png)
+https://eoweb.dlr.de/egp/docs/user/find_and_download.html help website for the viewer
+Collection TDM-IDEM-12m (TDM-IDEM-30m for gaps?)
 
 # Soil
 Bodenübersichtskarte 1:200.000, i.e. 1 cm = 0.2 km for whole Germany 
@@ -264,9 +277,8 @@ https://produktcenter.bgr.de/terraCatalog/DetailResult.do?fileIdentifier=154997F
 
 ```{r}
 buek200_lscs <- st_read(here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"))
-unique(buek200_lscs$NAME)
 
-# try converting from latin1 to utf8
+# try converting from latin1 (?) to utf8
 buek200_lscs$Legende = iconv(buek200_lscs$Legende, "latin1", "UTF-8")
 buek200_lscs$Hinweis = iconv(buek200_lscs$Hinweis, "latin1", "UTF-8")
 
@@ -274,19 +286,35 @@ buek200_lscs$NAME[buek200_lscs$NAME=="Schw\xe4bische Alb"] <- "Swabian Alb"
 buek200_lscs$NAME[buek200_lscs$NAME=="Rückland der Mecklenburg-Brandenburgischen Seenplatte"] <- "Rueckl_Mck_Seen"
 buek200_lscs$NAME[buek200_lscs$NAME=="Thüringer Becken und Randplatten"] <- "Thuer_Randpl"
 
-mapview(buek200_lscs, zcol="Symbol", legend=FALSE)
+# doesn't render, unfortunately, there's some encoding issue
+# mapview(buek200_lscs, 
+#         zcol="Symbol", legend=FALSE)
 
 ```
+
+# Basis-DLM 
+* MV: kostenlos für wissenschaftliche Nutzung, bestellt über Formular, interne Nutzung 
+* Sachsen-Anhalt:Kostenanfrage gesendet (50 € für Grünland)
+* BaWü: Kostenanfrage gesendet  
+
+* Brandenburg: kostenlos über https://geobroker.geobasis-bb.de/ bestellt und heruntergeladen
+* Thüringen: Download von https://www.geoportal-th.de/de-de/Downloadbereiche/Download-Offene-Geodaten-Th%C3%BCringen/Download-ATKIS-Basis-DLM 
+* Bayern: heruntergeladen unter https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=atkis_basis_dlm 
+* Hessen (kleines Stück): heruntergeladen von https://gds.hessen.de/INTERSHOP/web/WFS/HLBG-Geodaten-Site/de_DE/-/EUR/ViewDownloadcenter-Start
+* Niedersachsen (kleines Stück): heruntergeladen von https://opengeodata.lgln.niedersachsen.de/#bdlm 
+
 
 
 ### To do
 * Question @Meeting: ALB Explo Geometry > landscape unit, extend, right? 
+* Talk about TandemX Daten 12m ESA Research Proposal
+* Talk about GitHub
 
-TandemX Daten 12m ESA Research Proposal
-https://sss.terrasar-x.dlr.de/
 Mewing frequency 
 Landuse intensity
-Marvin Satellitenzeitreihe Landscape Metrics package Jakub Jahreskomposit (DLM Daten)
+
+Marvin Satellitenzeitreihe 
+Landscape Metrics package Jakub Jahreskomposit (DLM Daten)
 Recherche welche Metrics sinnvoll wären 
 
 

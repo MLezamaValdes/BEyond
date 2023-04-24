@@ -1,0 +1,164 @@
+---
+title: "Landscape_Indices"
+author: "Maite"
+format: html
+editor: visual
+theme: flatly
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
+```
+
+```{r}
+library(here)
+library(sf)
+library(terra)
+library(raster)
+library(mapview)
+```
+
+## Landscape Indices
+
+Trying some indices with the DLM data.
+
+Ideas:
+
+-   How much grassland surrounds the patch? Area
+
+-   How is the vicinity of the grassland?
+
+    -   E.g. forest or city?
+
+    -   In which proportions and distances? 
+
+    -   perhaps also directions and elevations of the neighboring grassland patches (for aerial and fluvial transport)
+
+-   
+
+Using Thüringen as an example:
+
+```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
+dp <- "../data/"
+sap <- here(dp, "/studyarea")
+
+geo_exp <- st_read(here(sap, "all3explos.gpkg"))
+plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
+lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
+
+
+```
+
+```{r eval=F}
+#| warning: false
+#| eval: false
+dlm_th <- st_read(here("../data/Basisdaten/DLM/Thueringen/veg01_f.shp"))
+dlm_th <- st_transform(dlm_th, crs(lsc_all))
+dlm_th_lsc <- st_intersection(lsc_all[2,], dlm_th)
+st_write(dlm_th_lsc, here("../data/Basisdaten/DLM/Thueringen/veg01_f_proj_cut.shp"))
+
+```
+
+```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
+dlm_th <- st_read(here("../data/Basisdaten/DLM/Thueringen/veg01_f_proj_cut.shp"))
+
+```
+
+For now only using the Exploratory Area of the DLM.
+
+```{r}
+dlm_th <- st_intersection(geo_exp[2,], dlm_th)
+
+dlm_th_grass <- dlm_th[dlm_th$VEG=="1020",]
+
+mapview(dlm_th_grass, map.types = "Esri.WorldImagery", col.regions="#139404")+
+  mapview(lsc_all[2,], alpha=0)+ 
+  mapview(plots_exp[plots_exp$explrtr == "HAI" & plots_exp$type == "grassland",])
+
+
+```
+
+Which grassland geometries contain plots: 
+```{r}
+has_plot <- st_contains(dlm_th_grass, plots_exp)
+has_plot <- unlist(as.character(has_plot))
+has_plot[has_plot == "integer(0)"] <- NA
+dlm_th_grass$has_plot <- !is.na(has_plot)
+
+mapview(dlm_th_grass, zcol="has_plot")
+```
+
+Probably best to unify patches:
+
+
+Unify adjacent grassland patches: 
+Helpful: https://github.com/rstudio/cheatsheets/blob/main/sf.pdf
+https://github.com/r-spatial/sf/issues/290 
+
+run st_touches and loop st_union until all touching are dissolved? 
+
+```{r}
+library(tidyr)
+library(dplyr)
+
+
+# start loop here and end when touch is completely empty 
+
+touch <- st_touches(dlm_th_grass)
+
+
+touchidlist <- lapply(seq(touch), function(i){
+  c(i, which(df[,i] != 0))
+})
+
+dis <- lapply(seq(touchidlist), function(i){
+  summarise(dlm_th_grass[touchidlist[[i]], ], 
+          m=mean(AREA))
+})
+
+dis_col <- do.call(rbind, dis)
+dis_col
+
+# loop ends here 
+
+# just checking
+mapview(dis_col, alpha.regions=0, lwd=2, color="red")+
+  mapview(dlm_th_grass, alpha.regions=0, lwd=1)
+
+```
+
+That's not it.. that way we loose all information 
+```{r}
+dlm_th_grass_union <- st_union(dlm_th_grass, by_feature=TRUE)
+
+mapview(dlm_th_grass, col.regions="#139404", map.types = "Esri.WorldImagery")+
+  mapview(dlm_th_grass_union)+
+  mapview(plots_exp, query.position = mapviewGetOption("query.position"))
+```
+
+
+### Calculate area grassland around patch
+```{r}
+gli <- st_intersection( dlm_th_grass_union, plots_exp)
+```
+
+### Calculate proportion of other DLM types, their distance and orientation respective to the plot
+```{r}
+
+```
+
+
+
+Trying landscapemetrics package: 
+```{r}
+library(landscapemetrics)
+```
+
+
+## Sources:
+
+https://gistbok.ucgis.org/bok-topics/landscape-metrics#:\~:text=Landscape%20metrics%E2%80%94also%20known%20as,within%20a%20defined%20geographic%20area.
