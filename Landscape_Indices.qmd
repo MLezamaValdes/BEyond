@@ -30,7 +30,7 @@ Ideas:
 
     -   E.g. forest or city?
 
-    -   In which proportions and distances? 
+    -   In which proportions and distances?
 
     -   perhaps also directions and elevations of the neighboring grassland patches (for aerial and fluvial transport)
 
@@ -82,7 +82,8 @@ mapview(dlm_th_grass, map.types = "Esri.WorldImagery", col.regions="#139404")+
 
 ```
 
-Which grassland geometries contain plots: 
+Which grassland geometries contain plots:
+
 ```{r}
 has_plot <- st_contains(dlm_th_grass, plots_exp)
 has_plot <- unlist(as.character(has_plot))
@@ -94,36 +95,46 @@ mapview(dlm_th_grass, zcol="has_plot")
 
 Probably best to unify patches:
 
+Unify adjacent grassland patches: Helpful: https://github.com/rstudio/cheatsheets/blob/main/sf.pdf https://github.com/r-spatial/sf/issues/290
 
-Unify adjacent grassland patches: 
-Helpful: https://github.com/rstudio/cheatsheets/blob/main/sf.pdf
-https://github.com/r-spatial/sf/issues/290 
-
-run st_touches and loop st_union until all touching are dissolved? 
+run st_touches and loop st_union until all touching are dissolved?
 
 ```{r}
 library(tidyr)
 library(dplyr)
 
-
 # start loop here and end when touch is completely empty 
-
 touch <- st_touches(dlm_th_grass)
 
 
-touchidlist <- lapply(seq(touch), function(i){
-  c(i, which(df[,i] != 0))
+dflist <- lapply(seq(touch), function(i){
+  v <- numeric(length(touch))
+  v[touch[[i]]] <- i
+  v
 })
 
-dis <- lapply(seq(touchidlist), function(i){
-  summarise(dlm_th_grass[touchidlist[[i]], ], 
-          m=mean(AREA))
-})
+df <- as.data.frame(do.call(cbind, dflist)) # list vector is in column
 
-dis_col <- do.call(rbind, dis)
-dis_col
 
-# loop ends here 
+while(any( unlist(listlength) != 0 )){
+  
+  touchidlist <- lapply(seq(touch), function(i){
+    c(i, which(df[,i] != 0))
+  })
+  
+  dis <- lapply(seq(touchidlist), function(i){
+    summarise(dlm_th_grass[touchidlist[[i]], ], 
+            m=mean(AREA)) # this unifies the polygons
+  })
+  
+  dis_col <- do.call(rbind, dis) # one object from the unified polys
+  nrow(dis_col)
+  
+  touch <- st_touches(dis_col) # checking again for the loop 
+  listlength <- lapply(touch, function(x) length(x))
+
+}
+  
 
 # just checking
 mapview(dis_col, alpha.regions=0, lwd=2, color="red")+
@@ -131,8 +142,9 @@ mapview(dis_col, alpha.regions=0, lwd=2, color="red")+
 
 ```
 
-That's not it.. that way we loose all information 
 ```{r}
+#| eval: false
+#That's not it.. that way we loose all information
 dlm_th_grass_union <- st_union(dlm_th_grass, by_feature=TRUE)
 
 mapview(dlm_th_grass, col.regions="#139404", map.types = "Esri.WorldImagery")+
@@ -140,24 +152,23 @@ mapview(dlm_th_grass, col.regions="#139404", map.types = "Esri.WorldImagery")+
   mapview(plots_exp, query.position = mapviewGetOption("query.position"))
 ```
 
-
 ### Calculate area grassland around patch
+
 ```{r}
 gli <- st_intersection( dlm_th_grass_union, plots_exp)
 ```
 
 ### Calculate proportion of other DLM types, their distance and orientation respective to the plot
+
 ```{r}
 
 ```
 
+Trying landscapemetrics package:
 
-
-Trying landscapemetrics package: 
 ```{r}
 library(landscapemetrics)
 ```
-
 
 ## Sources:
 

@@ -36,5 +36,3 @@ library(raster)
 library(mapview)
 library(kableExtra)
 ```
-
-
