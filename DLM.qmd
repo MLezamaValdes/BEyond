@@ -10,13 +10,15 @@ theme: flatly
 
 Not yet available:
 
--   MV: kostenlos für wissenschaftliche Nutzung, bestellt über Formular, interne Nutzung
+-   Sachsen-Anhalt: Kostenanfrage gesendet (**50 €** für nichtkommerzielle Nutzung)
 
--   Sachsen-Anhalt:Kostenanfrage gesendet (50 € für Grünland)
+-   BaWü: **2.840,06 € + MWSt** Alternative vielleicht Landsat-basierter Landnutzungsdatensatz 30x30m basierend auf 2010?
 
--   BaWü: Kostenanfrage gesendet
+https://rips-metadaten.lubw.de/trefferanzeige?docuuid=db9d1dd9-158a-4b6e-b9a0-701330242b90
 
 Available already:
+
+-   MV: kostenlos für wissenschaftliche Nutzung, bestellt über Formular, interne Nutzung
 
 -   Brandenburg: kostenlos über https://geobroker.geobasis-bb.de/ bestellt und heruntergeladen
 

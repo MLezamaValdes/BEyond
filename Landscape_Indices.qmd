@@ -1,10 +1,12 @@
 ---
-title: "Landscape_Indices"
+title: "Landscape Indices"
 author: "Maite"
 format: html
 editor: visual
 theme: flatly
 ---
+
+This script explores how to use the ATKIS Basis-DLM data 1:50.000 for incorporating information on the landscape configuration that might be relevant for biodiversity of grasslands.
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
@@ -16,15 +18,16 @@ library(sf)
 library(terra)
 library(raster)
 library(mapview)
+library(ggplot2)
+library(landscapemetrics)
+library(leaflet)
+library(dplyr)
+
 ```
 
-## Landscape Indices
+Ideas on what aspects of the landscape patterns might be relevant for biodiversity of grasslands:
 
-Trying some indices with the DLM data.
-
-Ideas:
-
--   How much grassland surrounds the patch? Area
+-   How much grassland surrounds the patch? I.e. area of unified grasslands.
 
 -   How is the vicinity of the grassland?
 
@@ -34,9 +37,7 @@ Ideas:
 
     -   perhaps also directions and elevations of the neighboring grassland patches (for aerial and fluvial transport)
 
--   
-
-Using Thüringen as an example:
+Using the HAI exploratory's area within Thüringen for a test run (getting ATKIS for the ALB in BaWü is difficult, unfortunately):
 
 ```{r}
 #| results: 'hide'
@@ -48,127 +49,255 @@ geo_exp <- st_read(here(sap, "all3explos.gpkg"))
 plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
 lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
 
-
 ```
 
 ```{r eval=F}
+# projecting and cropping DLM data 
+
 #| warning: false
 #| eval: false
-dlm_th <- st_read(here("../data/Basisdaten/DLM/Thueringen/veg01_f.shp"))
+dlm_th <- st_read(here("../data/Basisdaten/DLM/Thueringen/orig/veg01_f.shp"))
 dlm_th <- st_transform(dlm_th, crs(lsc_all))
 dlm_th_lsc <- st_intersection(lsc_all[2,], dlm_th)
-st_write(dlm_th_lsc, here("../data/Basisdaten/DLM/Thueringen/veg01_f_proj_cut.shp"))
+st_write(dlm_th_lsc, here("../data/Basisdaten/DLM/Thueringen/changed/veg01_f_proj_cut.shp"))
 
 ```
 
 ```{r}
 #| results: 'hide'
 #| fig.keep: 'all'
-dlm_th <- st_read(here("../data/Basisdaten/DLM/Thueringen/veg01_f_proj_cut.shp"))
-
-```
-
-For now only using the Exploratory Area of the DLM.
-
-```{r}
+dlm_th <- st_read(here("../data/Basisdaten/DLM/Thueringen/changed/veg01_f_proj_cut.shp"))
 dlm_th <- st_intersection(geo_exp[2,], dlm_th)
-
 dlm_th_grass <- dlm_th[dlm_th$VEG=="1020",]
+```
 
-mapview(dlm_th_grass, map.types = "Esri.WorldImagery", col.regions="#139404")+
-  mapview(lsc_all[2,], alpha=0)+ 
-  mapview(plots_exp[plots_exp$explrtr == "HAI" & plots_exp$type == "grassland",])
+### Unify adjacent grassland patches
 
+```{r}
+dlm_th_grass_unif <- st_cast(st_union(dlm_th_grass), "POLYGON")
+# we loose information from ATKIS, but that shouldn't be necessary anyway, right? 
+dlm_th_grass_unif <- st_sf(dlm_th_grass_unif)
 
 ```
 
-Which grassland geometries contain plots:
+### Calculate grassland area around patch
+
+-   Which grassland geometries contain exploratory plots?
+
+-   What is the grassland area that surrounds the plots?
 
 ```{r}
-has_plot <- st_contains(dlm_th_grass, plots_exp)
+#| results: 'hide'
+#| fig.keep: 'all'
+d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
+
+has_plot <- st_contains(dlm_th_grass_unif, d_geo)
 has_plot <- unlist(as.character(has_plot))
 has_plot[has_plot == "integer(0)"] <- NA
-dlm_th_grass$has_plot <- !is.na(has_plot)
-
-mapview(dlm_th_grass, zcol="has_plot")
-```
-
-Probably best to unify patches:
-
-Unify adjacent grassland patches: Helpful: https://github.com/rstudio/cheatsheets/blob/main/sf.pdf https://github.com/r-spatial/sf/issues/290
-
-run st_touches and loop st_union until all touching are dissolved?
-
-```{r}
-library(tidyr)
-library(dplyr)
-
-# start loop here and end when touch is completely empty 
-touch <- st_touches(dlm_th_grass)
+dlm_th_grass_unif$has_plot <- !is.na(has_plot)
 
 
-dflist <- lapply(seq(touch), function(i){
-  v <- numeric(length(touch))
-  v[touch[[i]]] <- i
-  v
-})
+grass_plot <- dlm_th_grass_unif[dlm_th_grass_unif$has_plot == TRUE,]
+grass_plot$grassl_area <- st_area(grass_plot)
 
-df <- as.data.frame(do.call(cbind, dflist)) # list vector is in column
-
-
-while(any( unlist(listlength) != 0 )){
-  
-  touchidlist <- lapply(seq(touch), function(i){
-    c(i, which(df[,i] != 0))
-  })
-  
-  dis <- lapply(seq(touchidlist), function(i){
-    summarise(dlm_th_grass[touchidlist[[i]], ], 
-            m=mean(AREA)) # this unifies the polygons
-  })
-  
-  dis_col <- do.call(rbind, dis) # one object from the unified polys
-  nrow(dis_col)
-  
-  touch <- st_touches(dis_col) # checking again for the loop 
-  listlength <- lapply(touch, function(x) length(x))
-
-}
-  
-
-# just checking
-mapview(dis_col, alpha.regions=0, lwd=2, color="red")+
-  mapview(dlm_th_grass, alpha.regions=0, lwd=1)
+plots_grass_HAI <- st_intersection(grass_plot, d_geo[d_geo$explrtr == "HAI" & d_geo$type == "grassland",])
 
 ```
 
 ```{r}
-#| eval: false
-#That's not it.. that way we loose all information
-dlm_th_grass_union <- st_union(dlm_th_grass, by_feature=TRUE)
 
-mapview(dlm_th_grass, col.regions="#139404", map.types = "Esri.WorldImagery")+
-  mapview(dlm_th_grass_union)+
-  mapview(plots_exp, query.position = mapviewGetOption("query.position"))
+hasplot_cols <- c("#139404", "#a0d49a")
+m <- mapview(dlm_th_grass_unif, 
+        col.regions=hasplot_cols, 
+        map.types = "Esri.WorldImagery",
+        layer.name="has explo plot")+
+  mapview(dlm_th_grass, 
+        color="#0b5802", 
+        col.regions="#0b5802",
+        alpha.regions=0,
+        layer.name="lots")+
+  mapview(plots_grass_HAI, 
+          zcol="grassl_area",
+          layer.name="srndg grssl area")
+
+crds <- c(10.38, 51.221)
+m@map %>% setView(crds[1], crds[2], zoom = 12)
+
 ```
 
-### Calculate area grassland around patch
+Just checking: But as anticipated, there is, on its own, no clear relationship between the grassland area and biodiversity (2013):
 
 ```{r}
-gli <- st_intersection( dlm_th_grass_union, plots_exp)
+plots_grass_HAI$gl_area <- as.numeric(plots_grass_HAI$grassl_area)
+
+ggplot(plots_grass_HAI, aes(shannon, log(gl_area))) +
+  geom_point()+
+  xlab("surrounding grassland area (log / m²)")+ ylab("shannon index")+
+  geom_smooth(formula= y~x)
+
 ```
 
 ### Calculate proportion of other DLM types, their distance and orientation respective to the plot
 
+Looking into the proportion of DLM types within a buffer of radius 500m² surrounding the patch:
+
 ```{r}
+#| warning: false
+#| eval: false
+
+##################### preparing a mostly overlap free version of DLM polygons ##
+
+# read in full DLM 
+# projecting and cropping DLM data 
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+
+
+dlm_files <- list.files(here("../data/Basisdaten/DLM/Thueringen/orig/"), 
+                        pattern=".shp", full.names=T)
+
+dlm_files_names <- list.files(here("../data/Basisdaten/DLM/Thueringen/orig/"), 
+                        pattern=".shp", full.names=F)
+# group by type and use only f (l?)
+
+dlm_files_f <- dlm_files[substrRight(substring(dlm_files_names, 1, 7), 1) == "f"]
+dlm_files_use <- dlm_files_f[4:length(dlm_files_f)] # not using geb (only Verwaltungseinheiten)
+
+
+
+full_dlm_th <- lapply(seq(dlm_files_use), function(i){
+  st_read(dlm_files_use[i])
+})
+
+# crop before transforming to make it go faster
+HAItemplate <- st_transform(geo_exp[2,], crs(full_dlm_th[[1]]))
+full_dlm_th_exp <- lapply(X = full_dlm_th, FUN = st_intersection, y = HAItemplate)
+full_dlm_th_exp_transf <- lapply(X = full_dlm_th_exp, FUN = st_transform, crs = crs(geo_exp))
+
+library(tools)
+
+names(full_dlm_th_exp_transf) <- substrRight(file_path_sans_ext(dlm_files_use), 7)
+
+# keep only OBJART & OBJART_TXT to be able to put them all together
+full_dlm_th_exp_transf_subs <- lapply(seq(full_dlm_th_exp_transf), function(i){
+  subs <- full_dlm_th_exp_transf[[i]][,c(1, 3, 4, 10)]
+  if(nrow(subs) > 0 ){
+      names(subs)[4] <- "add_info"
+      subs$nam <- names(full_dlm_th_exp_transf[i])
+      print(i)
+      subs
+  } 
+})
+
+full_dlm_th <- do.call(rbind, full_dlm_th_exp_transf_subs)
+st_write(full_dlm_th,here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_exploHAI.gpkg"))
 
 ```
+
+```{r}
+#| results: 'hide'
+dlm <- st_read(here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_exploHAI.gpkg"))
+dlmcols <- c("#1050D6", "#5378C5", 
+             "#8D3811", 
+             "#E56290", "#BE5077", "#E68FAE", 
+             "#B4E395", "#37740E", "#52AB17", "#5BDF04",
+             "#C5D0C9", "#727272", "#1F1F1F", "#9D7B7B")
+names(dlmcols) <- unique(dlm$nam)
+coldf <- data.frame(colors=dlmcols, colornames = names(dlmcols))
+dlm <- merge(dlm, coldf, by.x="nam", by.y="colornames")
+
+```
+
+Make a buffer of radius = 500m², i.e. 196.350m² around explo plots and take a look at proportions of DLM inside the buffer. Veg04 (Vegetationsmerkmale) was eliminated since it caused overlapping. 
+
+rel = relief (Felsen / Felsblock)
+```{r}
+#| warning: false
+#| results: hide
+
+# veg04_f seems to be not that useful as "vegetationsmerkmal" overlapping other 
+# categories
+dlm <- dlm[dlm$nam!="veg04_f",] 
+
+# crop DLM to buffer
+buf <- st_buffer(plots_grass_HAI, 500)
+dlm_buf <- st_intersection(dlm, buf)
+
+dlm_grouped_buf <- dlm_buf %>% group_by(GpPlotID)
+dlm_grouped_buf$gi <- dlm_grouped_buf %>% group_indices()
+tab <- dlm_grouped_buf %>% tally()
+
+landtype_sum <- lapply(seq(n_groups(dlm_grouped_buf)), function(i){
+  b <- dlm_grouped_buf[dlm_grouped_buf$gi == i,]
+  bsum <- b %>% group_by(OBJART_TXT, nam, colors) %>% summarise()
+  bsum$OBJART_TXT <- substring(bsum$OBJART_TXT, 4, nchar(bsum$OBJART_TXT))
+  bsum$GpPlotID <- unique(b$GpPlotID)
+  bsum$area <- st_area(bsum)
+  bsum$areanum <- as.numeric(st_area(bsum))
+  bsum$areak <- bsum$areanum/1e+06
+  bsum
+})
+```
+
+
+```{r}
+mapview(dlm, zcol="nam", 
+        col.regions=unique(dlm$colors))+
+  mapview(plots_grass_HAI)+
+  mapview(buf)
+```
+
+Look at exemplary plots 
+
+Maybe sum up Gehölz and Wald into one category? Take a look at northern plot for this...
+
+#### H20825 & H20426
+```{r}
+#| layout-ncol: 2
+
+# dlm_grouped_buf$gi[which(dlm_grouped_buf$GpPlotID == "H20825")]
+# dlm_grouped_buf$gi[which(dlm_grouped_buf$GpPlotID == "H20426")]
+# dlm_grouped_buf$gi[which(dlm_grouped_buf$GpPlotID == "H12643")]
+
+ggplot(landtype_sum[[28]], aes(y=sort(areanum), x=OBJART_TXT))+
+  geom_bar(stat="identity")+
+  xlab("ATKIS category")+ylab("area within 500m² buffer around plot (km²)")+
+  ggtitle(landtype_sum[[28]]$GpPlotID)+
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggplot(landtype_sum[[19]], aes(y=sort(areanum), x=OBJART_TXT))+
+  geom_bar(stat="identity")+
+  xlab("ATKIS category")+ylab("area within 500m² buffer around plot (km²)")+
+  ggtitle(landtype_sum[[19]]$GpPlotID)+
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggplot(landtype_sum[[1]], aes(y=sort(areanum), x=OBJART_TXT))+
+  geom_bar(stat="identity")+
+  xlab("ATKIS category")+ylab("area within 500m² buffer around plot (km²)")+
+  ggtitle(landtype_sum[[1]]$GpPlotID)+
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+
+```{r}
+mapview(landtype_sum[[28]], zcol="nam",
+        col.regions=unique(landtype_sum[[28]]$colors), 
+        layer.name="ATKIS category", 
+        map.types = "Esri.WorldImagery")
+mapview(landtype_sum[[19]], zcol="nam",
+        col.regions=unique(landtype_sum[[19]]$colors),
+        layer.name="ATKIS category", 
+        map.types = "Esri.WorldImagery")
+mapview(landtype_sum[[1]], zcol="nam",
+        col.regions=unique(landtype_sum[[1]]$colors),
+        layer.name="ATKIS category", 
+        map.types = "Esri.WorldImagery")
+```
+
 
 Trying landscapemetrics package:
-
-```{r}
-library(landscapemetrics)
-```
 
 ## Sources:
 
