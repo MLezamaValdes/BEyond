@@ -6,7 +6,7 @@ editor: visual
 theme: flatly
 ---
 
-This script explores how to use the ATKIS Basis-DLM data 1:50.000 for incorporating information on the landscape configuration that might be relevant for biodiversity of grasslands.
+This script explores how to use the ATKIS Basis-DLM data 1:50.000 for incorporating information on the landscape configuration that might be relevant for biodiversity of grasslands. I'm using the HAI exploratory's area within Thüringen for a test run (getting ATKIS for the ALB in BaWü is difficult, unfortunately):
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
@@ -22,14 +22,16 @@ library(ggplot2)
 library(landscapemetrics)
 library(leaflet)
 library(dplyr)
-
+library(kableExtra)
 ```
 
 Ideas on what aspects of the landscape patterns might be relevant for biodiversity of grasslands:
 
--   How much grassland surrounds the patch? I.e. area of unified grasslands.
+-   **H1: Grassland patch size**: How much grassland surrounds the explo plot? I.e. area of unified grasslands. Island size \[Species Area Relationship: higher species richness in larger islands (higher equilibrium (immigration vs extinction) number of species) MacArthur and Wilson (1967)\]
 
--   How is the vicinity of the grassland?
+    [*not verified for now*]{.underline}
+
+-   **H2: Landuse composition within surroundings**. How is the vicinity of the grassland? Percentage of arable land within the landscape (Loos et al. 2021)
 
     -   E.g. forest or city?
 
@@ -37,30 +39,29 @@ Ideas on what aspects of the landscape patterns might be relevant for biodiversi
 
     -   perhaps also directions and elevations of the neighboring grassland patches (for aerial and fluvial transport)
 
-Using the HAI exploratory's area within Thüringen for a test run (getting ATKIS for the ALB in BaWü is difficult, unfortunately):
+-   **H3: Patch shape** Honnay et al. (1998), Patch complexity
+
+-   **H4: Distances between patches** Pärtel et al. (2005), Hanski & Gilpin (2007)
 
 ```{r}
 #| results: 'hide'
 #| fig.keep: 'all'
 dp <- "../data/"
 sap <- here(dp, "/studyarea")
-
 geo_exp <- st_read(here(sap, "all3explos.gpkg"))
 plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
 lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
-
 ```
 
-```{r eval=F}
-# projecting and cropping DLM data 
-
-#| warning: false
+```{r eval=F, warning=FALSE}
 #| eval: false
+#| warning: false
+
+# projecting and cropping DLM data 
 dlm_th <- st_read(here("../data/Basisdaten/DLM/Thueringen/orig/veg01_f.shp"))
 dlm_th <- st_transform(dlm_th, crs(lsc_all))
 dlm_th_lsc <- st_intersection(lsc_all[2,], dlm_th)
 st_write(dlm_th_lsc, here("../data/Basisdaten/DLM/Thueringen/changed/veg01_f_proj_cut.shp"))
-
 ```
 
 ```{r}
@@ -71,41 +72,40 @@ dlm_th <- st_intersection(geo_exp[2,], dlm_th)
 dlm_th_grass <- dlm_th[dlm_th$VEG=="1020",]
 ```
 
-### Unify adjacent grassland patches
+##### Unify adjacent grassland patches
 
 ```{r}
 dlm_th_grass_unif <- st_cast(st_union(dlm_th_grass), "POLYGON")
 # we loose information from ATKIS, but that shouldn't be necessary anyway, right? 
 dlm_th_grass_unif <- st_sf(dlm_th_grass_unif)
-
 ```
 
-### Calculate grassland area around patch
+### H1: Grassland patch size
 
--   Which grassland geometries contain exploratory plots?
-
--   What is the grassland area that surrounds the plots?
+##### calculate grassland area around patch
 
 ```{r}
 #| results: 'hide'
 #| fig.keep: 'all'
-d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
 
+d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
 has_plot <- st_contains(dlm_th_grass_unif, d_geo)
 has_plot <- unlist(as.character(has_plot))
 has_plot[has_plot == "integer(0)"] <- NA
 dlm_th_grass_unif$has_plot <- !is.na(has_plot)
-
-
 grass_plot <- dlm_th_grass_unif[dlm_th_grass_unif$has_plot == TRUE,]
 grass_plot$grassl_area <- st_area(grass_plot)
-
 plots_grass_HAI <- st_intersection(grass_plot, d_geo[d_geo$explrtr == "HAI" & d_geo$type == "grassland",])
 
 ```
 
-```{r}
+The following map shows
 
+-   Which grassland geometries contain exploratory plots
+
+-   What is the grassland area that surrounds the plots
+
+```{r}
 hasplot_cols <- c("#139404", "#a0d49a")
 m <- mapview(dlm_th_grass_unif, 
         col.regions=hasplot_cols, 
@@ -119,53 +119,46 @@ m <- mapview(dlm_th_grass_unif,
   mapview(plots_grass_HAI, 
           zcol="grassl_area",
           layer.name="srndg grssl area")
-
 crds <- c(10.38, 51.221)
 m@map %>% setView(crds[1], crds[2], zoom = 12)
-
 ```
 
-Just checking: But as anticipated, there is, on its own, no clear relationship between the grassland area and biodiversity (2013):
+Just checking: But as anticipated, there is, on its own, no clear relationship between the grassland area and biodiversity (only from 2013, though, at the time):
 
 ```{r}
 plots_grass_HAI$gl_area <- as.numeric(plots_grass_HAI$grassl_area)
-
 ggplot(plots_grass_HAI, aes(shannon, log(gl_area))) +
   geom_point()+
   xlab("surrounding grassland area (log / m²)")+ ylab("shannon index")+
   geom_smooth(formula= y~x)
-
 ```
 
-### Calculate proportion of other DLM types, their distance and orientation respective to the plot
+\--\> H1: not verified with this dataset
+
+### H2: Land use **composition within surroundings**
+
+##### Calculate proportion of other DLM types
 
 Looking into the proportion of DLM types within a buffer of radius 500m² surrounding the patch:
 
-```{r}
-#| warning: false
+```{r, eval=F}
 #| eval: false
+#| warning: false
+library(tools)
 
-##################### preparing a mostly overlap free version of DLM polygons ##
-
+######### preparing a mostly overlap free version of DLM polygons ##############
 # read in full DLM 
 # projecting and cropping DLM data 
 substrRight <- function(x, n){
   substr(x, nchar(x)-n+1, nchar(x))
 }
-
-
 dlm_files <- list.files(here("../data/Basisdaten/DLM/Thueringen/orig/"), 
                         pattern=".shp", full.names=T)
-
 dlm_files_names <- list.files(here("../data/Basisdaten/DLM/Thueringen/orig/"), 
                         pattern=".shp", full.names=F)
 # group by type and use only f (l?)
-
 dlm_files_f <- dlm_files[substrRight(substring(dlm_files_names, 1, 7), 1) == "f"]
-dlm_files_use <- dlm_files_f[4:length(dlm_files_f)] # not using geb (only Verwaltungseinheiten)
-
-
-
+dlm_files_use <- dlm_files_f[4:length(dlm_files_f)] # not using geb category (these are only Verwaltungseinheiten)
 full_dlm_th <- lapply(seq(dlm_files_use), function(i){
   st_read(dlm_files_use[i])
 })
@@ -174,10 +167,8 @@ full_dlm_th <- lapply(seq(dlm_files_use), function(i){
 HAItemplate <- st_transform(geo_exp[2,], crs(full_dlm_th[[1]]))
 full_dlm_th_exp <- lapply(X = full_dlm_th, FUN = st_intersection, y = HAItemplate)
 full_dlm_th_exp_transf <- lapply(X = full_dlm_th_exp, FUN = st_transform, crs = crs(geo_exp))
-
-library(tools)
-
 names(full_dlm_th_exp_transf) <- substrRight(file_path_sans_ext(dlm_files_use), 7)
+
 
 # keep only OBJART & OBJART_TXT to be able to put them all together
 full_dlm_th_exp_transf_subs <- lapply(seq(full_dlm_th_exp_transf), function(i){
@@ -189,50 +180,119 @@ full_dlm_th_exp_transf_subs <- lapply(seq(full_dlm_th_exp_transf), function(i){
       subs
   } 
 })
-
 full_dlm_th <- do.call(rbind, full_dlm_th_exp_transf_subs)
 st_write(full_dlm_th,here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_exploHAI.gpkg"))
-
 ```
 
 ```{r}
 #| results: 'hide'
 dlm <- st_read(here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_exploHAI.gpkg"))
-dlmcols <- c("#1050D6", "#5378C5", 
-             "#8D3811", 
-             "#E56290", "#BE5077", "#E68FAE", 
-             "#B4E395", "#37740E", "#52AB17", "#5BDF04",
-             "#C5D0C9", "#727272", "#1F1F1F", "#9D7B7B")
-names(dlmcols) <- unique(dlm$nam)
-coldf <- data.frame(colors=dlmcols, colornames = names(dlmcols))
-dlm <- merge(dlm, coldf, by.x="nam", by.y="colornames")
 
+# unique(dlm$add_info[dlm$OBJART_TXT == "AX_Landwirtschaft"]) # which vegetation sub categories available
+dlm$veg_info <- NA
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1020"] <- "grassland"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1021"] <- "meadow_orchard"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1010"] <- "arable_land"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1050"] <- "orchard"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1030"] <- "horticultural_land"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1031"] <- "nursery"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1011"] <- "orchard_field"
+
+# veg04_f seems to be not that useful as "vegetationsmerkmal" overlapping other 
+# categories
+dlm <- dlm[dlm$nam!="veg04_f",]
+
+# creating relevant info column for the categories that are probably interesting to us
+dlm$rel_info <- dlm$OBJART_TXT
+dlm$rel_info[dlm$nam=="veg01_f"] <- dlm$veg_info[dlm$nam=="veg01_f"] # adding more veg info
+
+# make relevant color scheme 
+dlm$colornam <- dlm$nam #using the layer names (general categories like siedlung / verkehr) to start for the less relevant main categories
+
+dlm$colornam[dlm$OBJART_TXT == "AX_Landwirtschaft"] <- dlm$rel_info[dlm$OBJART_TXT == "AX_Landwirtschaft"] # use more veg info 
+dlm$colornam[dlm$colornam=="veg02_f"] <- "forest"
+dlm$rel_cat <- dlm$colornam
+
+dlmcols <- c("#1050D6", "#5378C5", 
+             "#9C7E6A", 
+             "#E56290", "#BE5077", "#E68FAE", 
+             # 10 vegetation categories
+             "#B4E395","#C15208", "#11973C", "#499862", "#E4884B", "#33593F", "#4F715A", "#52AB17",
+             "#37740E", "#52AB17", 
+             "#C5D0C9", "#727272", "#F4F5F0", "#1F1F1F")
+dlmcolnams <- unique(dlm$colornam)
+dlmcolnams[is.na(dlmcolnams)] <- "other_agric"
+
+
+coldf <- data.frame(colors=dlmcols, colornames = dlmcolnams)
+
+# add colors to to dlm
+dlm <- merge(dlm, coldf, by.x="colornam", by.y="colornames")
+
+nam_rel_info_lookup <- unique(st_drop_geometry(dlm[ , c("rel_cat", "nam", "rel_info", "colors")]))
+
+ggplot(dlm, aes(x=reorder(rel_cat, rel_cat, function(x)-length(x)), 
+                fill=colornam)) +
+  geom_bar()+ xlab("ATKIS category")+
+  ggtitle("total amount of ATKIS categories in explo area HEG")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  scale_fill_manual(values=unique(dlm$colors))
 ```
 
-Make a buffer of radius = 500m², i.e. 196.350m² around explo plots and take a look at proportions of DLM inside the buffer. Veg04 (Vegetationsmerkmale) was eliminated since it caused overlapping. 
+Work on the categories:
+
+-   remove rel01_f? is it relevant for other areas?
+
+-   separate stehendes Gewässer and Fließgewässer (in gew01_f)
+
+-   make something like Teilversiegelt & Versiegelt from sie01 and sie02
+
+-   join categories in veg01? e.g. orchards and nursery? Not so sure that would be a good idea... (?)
+
+-   what about Sumpf?
+
+-   Add Gehölz to Wald?
+
+-   Verkehr komplett zu versiegelte Fläche
+
+```{r}
+# show categories and legend
+lookup_ordered <- nam_rel_info_lookup[order(nam_rel_info_lookup$nam),] 
+
+lookup_ordered %>% kbl() %>% 
+  kable_paper(full_width = T) %>% 
+  column_spec(5, color = "white",
+              background = lookup_ordered$colors,
+              popover = paste("am:", mtcars$am[1:8]))
+```
+
+Make a buffer of radius = 500m², i.e. 196.350m² around explo plots and take a look at proportions of DLM inside the buffer. Veg04 (Vegetationsmerkmale) was eliminated since it caused overlapping.
 
 rel = relief (Felsen / Felsblock)
+
+https://www.adv-online.de/icc/extdeu/nav/a63/binarywriterservlet%3FimgUid%3D9201016e-7efa-8461-e336-b6951fa2e0c9%26uBasVariant%3D11111111-1111-1111-1111-111111111111
+
+Vegetation categories are as follows:
+
+![](ATKIS_vegetation.png)
+
 ```{r}
 #| warning: false
 #| results: hide
 
-# veg04_f seems to be not that useful as "vegetationsmerkmal" overlapping other 
-# categories
-dlm <- dlm[dlm$nam!="veg04_f",] 
-
 # crop DLM to buffer
 buf <- st_buffer(plots_grass_HAI, 500)
 dlm_buf <- st_intersection(dlm, buf)
-
-dlm_grouped_buf <- dlm_buf %>% group_by(GpPlotID)
+# dlm_grouped_buf <- dlm_buf %>% group_by(GpPlotID)
+dlm_grouped_buf <- dlm_buf %>% group_by(ep)
 dlm_grouped_buf$gi <- dlm_grouped_buf %>% group_indices()
-tab <- dlm_grouped_buf %>% tally()
+tab <- dlm_grouped_buf %>% tally() # counting how many landscape types per buffer
 
+# group by relevant landscape types 
 landtype_sum <- lapply(seq(n_groups(dlm_grouped_buf)), function(i){
-  b <- dlm_grouped_buf[dlm_grouped_buf$gi == i,]
-  bsum <- b %>% group_by(OBJART_TXT, nam, colors) %>% summarise()
-  bsum$OBJART_TXT <- substring(bsum$OBJART_TXT, 4, nchar(bsum$OBJART_TXT))
-  bsum$GpPlotID <- unique(b$GpPlotID)
+  b <- dlm_grouped_buf[dlm_grouped_buf$gi == i,] # pick one buffer
+  bsum <- b %>% group_by(rel_cat, nam, colors, colornam) %>% summarise()
+  bsum$ep <- unique(b$ep)
   bsum$area <- st_area(bsum)
   bsum$areanum <- as.numeric(st_area(bsum))
   bsum$areak <- bsum$areanum/1e+06
@@ -240,65 +300,184 @@ landtype_sum <- lapply(seq(n_groups(dlm_grouped_buf)), function(i){
 })
 ```
 
-
 ```{r}
-mapview(dlm, zcol="nam", 
-        col.regions=unique(dlm$colors))+
+crds <- c(10.339, 51.118)
+m2 <- mapview(dlm, zcol="colornam", 
+        col.regions=dlm$colors)+
   mapview(plots_grass_HAI)+
   mapview(buf)
+m2@map %>% setView(crds[1], crds[2], zoom = 12)
+
 ```
 
-Look at exemplary plots 
+##### exemplary plots
 
 Maybe sum up Gehölz and Wald into one category? Take a look at northern plot for this...
 
-#### H20825 & H20426
 ```{r}
-#| layout-ncol: 2
+bufvec <- c(28, 19, 1, 3, 38)
 
-# dlm_grouped_buf$gi[which(dlm_grouped_buf$GpPlotID == "H20825")]
-# dlm_grouped_buf$gi[which(dlm_grouped_buf$GpPlotID == "H20426")]
-# dlm_grouped_buf$gi[which(dlm_grouped_buf$GpPlotID == "H12643")]
-
-ggplot(landtype_sum[[28]], aes(y=sort(areanum), x=OBJART_TXT))+
+lapply(seq(bufvec), function(i){
+  data <- landtype_sum[[i]]
+  
+  plotcall <- ggplot(data, aes(y=areanum, x=rel_cat, fill=rel_cat))+
   geom_bar(stat="identity")+
   xlab("ATKIS category")+ylab("area within 500m² buffer around plot (km²)")+
-  ggtitle(landtype_sum[[28]]$GpPlotID)+
-   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  ggtitle(data$ep)+
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  scale_fill_manual(values=data$colors)
+  
+  
+  plotcall
+})
 
-ggplot(landtype_sum[[19]], aes(y=sort(areanum), x=OBJART_TXT))+
-  geom_bar(stat="identity")+
-  xlab("ATKIS category")+ylab("area within 500m² buffer around plot (km²)")+
-  ggtitle(landtype_sum[[19]]$GpPlotID)+
-   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-
-ggplot(landtype_sum[[1]], aes(y=sort(areanum), x=OBJART_TXT))+
-  geom_bar(stat="identity")+
-  xlab("ATKIS category")+ylab("area within 500m² buffer around plot (km²)")+
-  ggtitle(landtype_sum[[1]]$GpPlotID)+
-   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 ```
 
-
 ```{r}
-mapview(landtype_sum[[28]], zcol="nam",
-        col.regions=unique(landtype_sum[[28]]$colors), 
+maplist <- lapply(seq(bufvec), function(i){
+  data <- landtype_sum[[i]]
+  
+  mapcall <- mapview(data, zcol="colornam",
+        col.regions=data$colors,
         layer.name="ATKIS category", 
-        map.types = "Esri.WorldImagery")
-mapview(landtype_sum[[19]], zcol="nam",
-        col.regions=unique(landtype_sum[[19]]$colors),
-        layer.name="ATKIS category", 
-        map.types = "Esri.WorldImagery")
-mapview(landtype_sum[[1]], zcol="nam",
-        col.regions=unique(landtype_sum[[1]]$colors),
-        layer.name="ATKIS category", 
-        map.types = "Esri.WorldImagery")
+        map.types = "Esri.WorldImagery",
+        legend=FALSE)
+  
+  mapcall
+})
+
+maplist[[1]]
+maplist[[2]]
+maplist[[3]]
+maplist[[4]]
+maplist[[5]]
+
 ```
 
+Biodiversity and land use composition in the surrounding buffer:
+
+```{r}
+ex <- landtype_sum[[19]]
+ntypes <- dim(ex)[1]
+
+# for all buffers: what's the correlation between biodiversity and the amount of different land uses in the buffer? 
+shan_buf <- sapply(seq(landtype_sum), function(i){
+  d_geo$shannon[d_geo$ep == unique(landtype_sum[[i]]$ep)]
+})
+
+# simply counting the amount of different landuse types within buffer 
+ntypes <- lapply(landtype_sum, dim)
+ntypes_dlm <- sapply(ntypes, `[[`, 1)
+
+# what's the category of highest proportion?
+
+
+nam_rel_info_lookup_unique_cat <- 
+  nam_rel_info_lookup[!duplicated(nam_rel_info_lookup[,c('rel_cat')]),]
+
+
+props <- lapply(seq(landtype_sum), function(i){
+  areaprop <- st_area(landtype_sum[[i]])/sum(st_area(landtype_sum[[i]]))
+  prd <- data.frame(rel_cat = landtype_sum[[i]]$rel_cat, area_prop = areaprop)
+  propdf <- merge(prd, nam_rel_info_lookup_unique_cat, by="rel_cat", all.y=F)
+  
+  maxprop <- propdf$rel_cat[which(propdf$area_prop == max(propdf$area_prop))]
+  p_ar <- as.numeric(propdf$area_prop[propdf$rel_cat == "arable_land"])
+  p_gr <- as.numeric(propdf$area_prop[propdf$rel_cat == "grassland"])
+  p_fo <- as.numeric(propdf$area_prop[propdf$rel_cat == "forest"])
+  p_cnst <- as.numeric(sum(propdf$area_prop[propdf$rel_cat == c("sie01_f", "sie02_f", "sie03_f", "ver01_f", 
+                                                 "ver02_f", "ver03_f", "ver04_f", "ver06_f")]))
+
+  return(list(maxprop, propdf, p_ar, p_gr, p_fo, p_cnst))
+})
+
+maxprop <- sapply(props, `[[`, 1)
+
+dlmtypes <- data.frame(shannon = unlist(shan_buf), 
+                       n_dlm_types = ntypes_dlm,
+                       maxprop = maxprop)
+
+dlmtypes <- merge(dlmtypes, lookup_ordered, by.x="maxprop", by.y="rel_cat")
+drops <- c("nam", "rel_info")
+dlmtypes <- dlmtypes[,!(names(dlmtypes) %in% drops)]
+
+dlmtypes$maxprop[ grepl("Wald", dlmtypes$maxprop) ] <- "forest"
+
+
+ggplot(dlmtypes, aes(n_dlm_types, shannon, color=maxprop)) +
+  geom_point(size=2)+
+  ggtitle("DLM types within buffer x biodiversity")+
+  xlab("amount of dlm types in buffer")+ ylab("shannon index")+
+  scale_color_manual("maximum proportion", values=unique(dlmtypes$colors))
+
+ggplot(dlmtypes, aes(n_dlm_types, shannon, group=n_dlm_types)) +
+  geom_boxplot()+
+    ggtitle("DLM types within buffer x biodiversity")+
+  xlab("amount of dlm types in buffer")+ ylab("shannon index")
+
+ggplot(dlmtypes, aes(maxprop, shannon, group=maxprop, color=maxprop)) +
+  geom_boxplot()+
+  ggtitle("maximum proportion DLM types within buffer x biodiversity")+
+  xlab("dlm type with most area representation in buffer")+ ylab("shannon index")+
+  scale_color_manual("maximum proportion", values=unique(dlmtypes$colors))
+
+
+propdf <- lapply(props, `[[`, 2)
+
+p_ar <- sapply(props, `[[`, 3)
+p_ar[sapply(p_ar, length) == 0] <- NA
+dlmtypes$p_ar <- unlist(p_ar)
+
+p_gr <- sapply(props, `[[`, 4)
+p_gr[sapply(p_gr, length) == 0] <- NA
+dlmtypes$p_gr <- unlist(p_gr)
+
+p_fo <- sapply(props, `[[`, 5)
+p_fo[sapply(p_fo, length) == 0] <- NA
+dlmtypes$p_fo <- unlist(p_fo)
+
+p_cnst <- sapply(props, `[[`, 6)
+p_cnst[sapply(p_cnst, length) == 0] <- NA
+dlmtypes$p_cnst <- unlist(p_cnst)
+
+
+
+ggplot(dlmtypes, aes(p_ar, shannon)) +
+  geom_point(size=2)+
+  ggtitle("percent arable land within buffer x biodiversity")+
+  xlab("percent arable land within buffer")+ ylab("shannon index")+
+  geom_smooth(formula= y~x)
+
+ggplot(dlmtypes, aes(p_gr, shannon)) +
+  geom_point(size=2)+
+  ggtitle("percent grassland within buffer x biodiversity")+
+  xlab("percent grassland within buffer")+ ylab("shannon index")+
+  geom_smooth(formula= y~x)
+
+```
 
 Trying landscapemetrics package:
+
+```{r, eval=F}
+
+library(landscapemetrics)
+
+dlm_ras <- stars::st_rasterize(dlm[, "rel_cat"])
+mapview(dlm_ras)
+
+lsm_l_shape_mn(dlm, directions = 8)
+```
+
+```{r}
+library(corrplot)
+# cor(dlm_buf)
+```
 
 ## Sources:
 
 https://gistbok.ucgis.org/bok-topics/landscape-metrics#:\~:text=Landscape%20metrics%E2%80%94also%20known%20as,within%20a%20defined%20geographic%20area.
+
+# to do:
+
+Fließgewässer, stehende trennen, sonst versiegelte Fläche zusammenfassen
