@@ -6,7 +6,11 @@ editor: visual
 theme: flatly
 ---
 
-This script explores how to use the ATKIS Basis-DLM data 1:50.000 for incorporating information on the landscape configuration that might be relevant for biodiversity of grasslands. I'm using the HAI exploratory's area within Thüringen for a test run (getting ATKIS for the ALB in BaWü is difficult, unfortunately):
+This script explores how to use the ATKIS Basis-DLM data 1:50.000 for incorporating information on the landscape configuration that might be relevant for biodiversity of grasslands. I'm using the HAI exploratory's area within Thüringen for a test run (getting ATKIS for the ALB in BaWü is difficult, unfortunately).
+
+As measure of taxonomic biodiversity, the **Shannon-Wiener index** is used (quantifies variety and evenness of species present): relative abundance of each species (number of individuals per species/total n), each species relative abundance is multiplied by its natural logarithm, all values are summed up and negative of sum taken. Higher values mean more species present and they are more evenly distributed.
+
+Moreover, to grasp functional diversity, XXX is used as a response.
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
@@ -25,23 +29,100 @@ library(dplyr)
 library(kableExtra)
 ```
 
+# Hypothesis on grassland biodiversity
+
 Ideas on what aspects of the landscape patterns might be relevant for biodiversity of grasslands:
 
--   **H1: Grassland patch size**: How much grassland surrounds the explo plot? I.e. area of unified grasslands. Island size \[Species Area Relationship: higher species richness in larger islands (higher equilibrium (immigration vs extinction) number of species) MacArthur and Wilson (1967)\]
+*how to translate into method*
 
-    [*not verified for now*]{.underline}
+[preliminary results on the hypothesis]{.underline}
 
--   **H2: Landuse composition within surroundings**. How is the vicinity of the grassland? Percentage of arable land within the landscape (Loos et al. 2021)
+**Patch metric related hypotheses:**
 
-    -   E.g. forest or city?
+-   **HP1: Species Area Relationship**: larger islands, larger species richness (MacArthur, Wilson 1967)
 
-    -   In which proportions and distances?
+    I.e. (higher equilibrium (immigration vs extinction) number of species) Larger areas contain greater variability of habitats -\> More niches can be satisfied. Larger areas can support larger communities which in turn are less likely to become extinct (Mittelbach 2019)
 
-    -   perhaps also directions and elevations of the neighboring grassland patches (for aerial and fluvial transport)
+    more grassland specialists on larger patches, plant species richness increasing with patch size (Loos et al. 2021)
 
--   **H3: Patch shape** Honnay et al. (1998), Patch complexity
+    -   *size of the patch/field, area of connected grassland (what is connected? road / forest / ..)*
 
--   **H4: Distances between patches** Pärtel et al. (2005), Hanski & Gilpin (2007)
+    -   [not verified]{.underline} (n=XXX, area= XXX)
+
+-   **HP2: Irregularly shaped patches** contain higher number of environmental gradients (Honnay 1999) and higher ratio edge length : patch size -\> higher effects of adjacent agriculture
+
+    -   *ratio edge length : patch size*
+
+        -   *is there a correlation between patch complexity and grassland history and LUI?*
+
+-   **HP3: Grassland next neighbor**: Higher distance between patches leads to reduced biodiversity (reduces migration, higher extinction risk, lower recolonization probability)
+
+    -   *nearest grassland neighbor distance*
+
+    -   [not verified for now]{.underline}
+
+-   **HP4: Landscape context matters for biodiversity**
+
+    -   *percent type of land use in surroundings, especially agriculture*
+
+-   **HP4a: Percent arable land:** the more arable land within the landscape, the less species richness on the grassland plots (Loos et al. 2021) arthropod decline for grassland associated with agriculture at landscape scale (Li 2023, Seibold 2019)
+
+    -   *percent arable land within landscape*
+
+    -   [not verified for now (n=xxx, area=xxx, ...)]{.underline}
+
+-   (?) Availability of **hedges** (Fukamachi et al. 2011, Cherrill et al. 2010)
+
+**Landscape history related hypotheses:**
+
+-   ***Historical*** **patch size and isolation:** Current isolation differs strongly from the isolation which occurred when the species richness was formed, because many grasslands disappeared. The extinction of species in response to isolation might be delayed by 100 years or more (extinction debt). Thus, historical isolation might be more important in describing current diversity than recent isolation.Lindborg & Eriksson (2004) Pärtel et al. (2005)
+
+    -   probably only for discussion
+
+-   Older patches show higher biodiversity, younger patches have higher nutrient levels if used as agricultural land before (Honnay 1999)
+
+    -   *Grassland history from time series (???) e.g. via NDVI time series with breaking points?*
+
+**Disturbance related hypothesis:**
+
+-   **HD1: Intermediate Disturbance Hypothesis**:\
+    Species Richness highest when moderate disturbance intensity (grazing/mowing) because grazing/mowing have disproportional large effect on competitive dominants, gaps are produced where proagules can establish (Fox 1979, Leps 1999)
+
+    -   *LUI (germany wide)*
+
+    -   intermediate LUI and its components lead to highest biodiversity
+
+    -   [not verified for LUI (n=xxx, area=xxx), but for mowing (n=xxx, area=xxx, sig=xxx)]{.underline}
+
+-   **HD2: enhanced productivity** **-\> reduction in diversity**; fertilization amplifies differences between relative growth rates of neighboring ramets, high nutrient adapted plants will out compete others (Pärtel 2002, Sammul 2003) **LU intensification** --\> species loss, adverse effects on dietary specialists, promoting generalist species, homogenized assemblages (Christe 2018) Land use intensification, fertilization -\> reduction of grassland biodiversity: Severe declines in plant species richness have been especially caused by intensive fertilization (Gross 2009; Socher 2012) such that even common plant species have decreased in abundance at alarming rates (Jansen 2019). (Freitag et al. 2021)
+
+    -   *fertilization data / LUI; Poductivity proxy NDVI*
+
+-   **HD3: Inter-annual variation in land use intensity** enhances grassland multidiversity (Allan 2014) especially in rarer species
+
+    -   *LUI temporal variability*
+
+    -   [not verified for now (xxx)]{.underline}
+
+**Abiotic habitat related hypotheses:**
+
+-   **HA1: Habitat heterogeneity hypothesis**: Abiotic diversity creates different niches --\> higher species richness (Burnett 2008, Heidrich 2020)
+
+    probably only important to compare between explos, perhaps Zeigerwerte model analysis / discussion
+
+    -   *SD abiotic predictors (terrain, ...) in environment*
+
+-   **HA2: Soil properties are relevant for grassland biodiversity**
+
+    -   *soil type, bedrock, distance to groundwater, soil texture...*
+
+-   **HA2a: High pH, higher species richness**: were more abundant during evolutionary times at high latitudes (Pärtel 2002)
+
+    -   *pH*
+
+-   **HA2b: Soil depth** effects on grassland communities and landuse practices interact: Soil depth had a strong positive effect on species richness under mowing, suggesting increased space for niche differentiation in deeper soils. In unmown plots, deep soils harboured a similar diversity of species as shallow soils, and our findings suggest that this effect on diversity is due to larger biomass and lower light availability on deep soils. Fertilization and trampling had no effect on diversity. (Braun 2022) 
+
+    -   *soil depth, mowing frequency*
 
 ```{r}
 #| results: 'hide'
@@ -61,7 +142,7 @@ lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
 dlm_th <- st_read(here("../data/Basisdaten/DLM/Thueringen/orig/veg01_f.shp"))
 dlm_th <- st_transform(dlm_th, crs(lsc_all))
 dlm_th_lsc <- st_intersection(lsc_all[2,], dlm_th)
-st_write(dlm_th_lsc, here("../data/Basisdaten/DLM/Thueringen/changed/veg01_f_proj_cut.shp"))
+st_write(dlm_th_lsc, here("../data/Basisdaten/DLM/Thueringen/changed/veg01_f_proj_cut.shp"), append=F)
 ```
 
 ```{r}
@@ -80,7 +161,7 @@ dlm_th_grass_unif <- st_cast(st_union(dlm_th_grass), "POLYGON")
 dlm_th_grass_unif <- st_sf(dlm_th_grass_unif)
 ```
 
-### H1: Grassland patch size
+### HP1: Grassland patch size
 
 ##### calculate grassland area around patch
 
@@ -126,16 +207,24 @@ m@map %>% setView(crds[1], crds[2], zoom = 12)
 Just checking: But as anticipated, there is, on its own, no clear relationship between the grassland area and biodiversity (only from 2013, though, at the time):
 
 ```{r}
+#| layout-ncol: 2
+
 plots_grass_HAI$gl_area <- as.numeric(plots_grass_HAI$grassl_area)
 ggplot(plots_grass_HAI, aes(shannon, log(gl_area))) +
   geom_point()+
+    ggtitle("grassland area x biodiversity", subtitle=paste0("HAI, n=", nrow(plots_grass_HAI)))+theme_minimal()+
   xlab("surrounding grassland area (log / m²)")+ ylab("shannon index")+
   geom_smooth(formula= y~x)
+
+ggplot(plots_grass_HAI, aes(shannon, log(gl_area))) +
+  geom_point()+
+    ggtitle("grassland area x biodiversity", subtitle=paste0("HAI, n=", nrow(plots_grass_HAI)))+theme_minimal()+  xlab("surrounding grassland area (log / m²)")+ ylab("shannon index")+
+  geom_smooth(formula= y~x, method="lm")
 ```
 
-\--\> H1: not verified with this dataset
+&rarr; HP1: could be, no major evidence, though, from HAI.
 
-### H2: Land use **composition within surroundings**
+### Land use **composition within surroundings**
 
 ##### Calculate proportion of other DLM types
 
@@ -237,6 +326,8 @@ ggplot(dlm, aes(x=reorder(rel_cat, rel_cat, function(x)-length(x)),
   ggtitle("total amount of ATKIS categories in explo area HEG")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
   scale_fill_manual(values=unique(dlm$colors))
+
+st_write(dlm,here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_relcat_exploHAI.gpkg"), append=F)
 ```
 
 Work on the categories:
@@ -279,6 +370,8 @@ Vegetation categories are as follows:
 ```{r}
 #| warning: false
 #| results: hide
+
+dlm <- st_read(here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_relcat_exploHAI.gpkg"))
 
 # crop DLM to buffer
 buf <- st_buffer(plots_grass_HAI, 500)
@@ -457,21 +550,110 @@ ggplot(dlmtypes, aes(p_gr, shannon)) +
 
 ```
 
-Trying landscapemetrics package:
+## Patch metrics
 
-```{r, eval=F}
+```{r}
+#| warning: false
+#| results: hide
+#| 
+pm_vec <- st_read(paste0(here("../data/Basisdaten/DLM/Thueringen/changed/pm_vec.gpkg")))
 
-library(landscapemetrics)
-
-dlm_ras <- stars::st_rasterize(dlm[, "rel_cat"])
-mapview(dlm_ras)
-
-lsm_l_shape_mn(dlm, directions = 8)
+d_geo_patch <- st_intersection(d_geo, pm_vec)
 ```
 
 ```{r}
-library(corrplot)
-# cor(dlm_buf)
+#| layout-ncol: 2
+
+# area: patch area
+# cai: Core Area Index; percentage of a patch that is core area
+# enn: euclidean nearest neighbour distance
+# frac: standardized patch complexity (~perimeter:size)
+# frac = 1 for a squared patch shape form and frac = 2 for a irregular patch shape
+
+
+ggplot(d_geo_patch, aes(area, shannon))+
+  geom_point()+
+  geom_smooth(span=2)+
+  theme_minimal()+
+  ggtitle("patch area x biodiversity", subtitle = paste0("n = ", nrow(d_geo_patch)))
+
+ggplot(d_geo_patch, aes(enn, shannon))+
+  geom_point()+
+  geom_smooth(span=2)+
+  theme_minimal()+
+  ggtitle("euclidean nearest neighbour distance x biodiversity", subtitle = paste0("n = ", nrow(d_geo_patch)))
+
+ggplot(d_geo_patch, aes(frac, shannon))+
+  geom_point()+
+  geom_smooth(span=2)+
+  theme_minimal()+
+  ggtitle("standardized patch complexity x biodiversity", subtitle = paste0("n = ", nrow(d_geo_patch)))
+
+ggplot(d_geo_patch, aes(cai, shannon))+
+  geom_point()+
+  geom_smooth(span=2)+
+  theme_minimal()+
+  ggtitle("core area index x biodiversity", subtitle = paste0("n = ", nrow(d_geo_patch)))
+
+
+names(d_geo)
+
+```
+
+### **Patch shape, Patch complexity, distances between patches** 
+
+See calc_patch_metrics scripts trying landscapemetrics package and RS Github Repo
+
+```{r}
+lui <- read.csv(list.files(here("../data/LUI/LuiData/"), pattern=".txt$", full.names=T))
+
+# fix some things in LUI dataset to merge correctly 
+lui$year <- substring(lui$YEAR, 12,15)
+
+idshort <- lui$PLOTID[nchar(lui$PLOTID) == 4] 
+idshortfix <- paste0(substring(idshort, 1,3), "0", substring(idshort, 4,4))
+lui$PLOTID[nchar(lui$PLOTID) == 4]  <- idshortfix
+
+
+lui13 <- filter(lui, year=="2013")
+d_lui <- merge(d_geo, lui13, by.x="ep", by.y="PLOTID")
+# table(d_lui$year) # now all 150plots are merged 
+
+ggplot(d_lui, aes(LUI, shannon))+
+  geom_point()+
+  geom_smooth(span=2)+
+  theme_minimal()+
+  ggtitle("LUI x biodiversity", subtitle = paste0("n = ", nrow(d_lui[d_lui$year == "2013",])))
+
+```
+
+```{r}
+#| layout-ncol: 3
+ggplot(d_lui, aes(G_STD, shannon))+
+  geom_point()+
+  geom_smooth(span=2)+
+  theme_minimal()+
+  ggtitle("grazing x biodiversity", subtitle = paste0("n = ", nrow(d_lui[d_lui$year == "2013",])))
+
+ggplot(d_lui, aes(y=shannon, x=M_STD))+
+  geom_boxplot(aes(group=M_STD))+
+  theme_minimal()+
+  ggtitle("mowing x biodiversity", subtitle = paste0("n = ", nrow(d_lui[d_lui$year == "2013",])))
+
+ggplot(d_lui, aes(F_STD, shannon))+
+  geom_point()+
+  geom_smooth(span=2)+
+  theme_minimal()+
+  ggtitle("fertilization x biodiversity", subtitle = paste0("n = ", nrow(d_lui[d_lui$year == "2013",])))
+```
+
+There seems to be a statistical relation but at least for 2013 it seems like the smaller the LUI the higher the diversity or even like intermediate disturbances lead to lowest biodiversity...
+
+Hypothesis of highest biodiversity with intermediate disturbances seems to be valid only for grazing (which makes sense given the further explanation of the H),
+
+### Overall correlations within the dataset and with predictors (terrain, ...)
+
+```         
 ```
 
 ## Sources:

@@ -307,15 +307,16 @@ buek200_lscs$NAME[buek200_lscs$NAME=="Thüringer Becken und Randplatten"] <- "Th
 
 ### To do
 * Question @Meeting: ALB Explo Geometry > landscape unit, extend, right? 
-* Talk about TandemX Daten 12m ESA Research Proposal
 * Talk about GitHub
+* ![](landscapemetrics_patch_rastering_25m.png) do we want to use rasters? at 25m this implies non-connected patches
 
-Mewing frequency 
-Landuse intensity
 
+Notes: 
+Mewing frequency, Landuse intensity available germany wide
 Marvin Satellitenzeitreihe 
 Landscape Metrics package Jakub Jahreskomposit (DLM Daten)
 Recherche welche Metrics sinnvoll wären 
+
 
 
 
