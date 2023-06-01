@@ -1,0 +1,1121 @@
+---
+title: "Landscape Indices"
+author: "Maite"
+format: html
+editor: visual
+theme: flatly
+---
+
+This script explores how to use the ATKIS Basis-DLM data 1:50.000 for incorporating information on the landscape configuration that might be relevant for biodiversity of grasslands. I'm using the HAI exploratory's area within Thüringen for a test run (getting ATKIS for the ALB in BaWü is difficult, unfortunately).
+
+As measure of taxonomic biodiversity, the **Shannon-Wiener index** is used (quantifies variety and evenness of species present): relative abundance of each species (number of individuals per species/total n), each species relative abundance is multiplied by its natural logarithm, all values are summed up and negative of sum taken. Higher values mean more species present and they are more evenly distributed.
+
+Moreover, to grasp functional diversity, XXX is used as a response.
+
+![](theoretic_model.png)
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
+```
+
+```{r}
+library(here)
+library(sf)
+library(terra)
+library(raster)
+library(mapview)
+library(ggplot2)
+library(landscapemetrics)
+library(leaflet)
+library(dplyr)
+library(kableExtra)
+library(leaflet)
+library(plainview)
+library(leafsync)
+library(geomtextpath)
+
+
+```
+
+# Hypothesis on grassland biodiversity
+
+Ideas on what aspects of the landscape patterns might be relevant for biodiversity of grasslands:
+
+*how to translate into method*
+
+[[preliminary results on the hypothesis]{.underline}]{style="color: firebrick;"}
+
+**Patch metric related hypotheses:**
+
+-   **HP1: Species Area Relationship**: larger islands, larger species richness (MacArthur, Wilson 1967)
+
+    I.e. (higher equilibrium (immigration vs extinction) number of species) Larger areas contain greater variability of habitats -\> More niches can be satisfied. Larger areas can support larger communities which in turn are less likely to become extinct (Mittelbach 2019)
+
+    more grassland specialists on larger patches, plant species richness increasing with patch size (Loos et al. 2021)
+
+    -   *size of the patch/field, area of connected grassland (what is connected? road / forest / ..)*
+
+        ::: {style="color: firebrick"}
+        [not verified]{.underline} (n=50, area= HAI)
+        :::
+
+-   **HP2: Irregularly shaped patches** contain higher number of environmental gradients (Honnay 1999) and higher ratio edge length : patch size -\> higher effects of adjacent agriculture
+
+    -   *ratio edge length : patch size*
+
+        -   *is there a correlation between patch complexity and grassland history and LUI?*
+
+            ::: {style="color: firebrick"}
+            [not verified]{.underline} (n=50, area= HAI)
+            :::
+
+-   **HP3: Grassland next neighbor**: Higher distance between patches leads to reduced biodiversity (reduces migration, higher extinction risk, lower recolonization probability)
+
+    -   *nearest grassland neighbor distance*
+
+        ::: {style="color: firebrick"}
+        [not verified (n=50, area= HAI)]{.underline}
+        :::
+
+-   **HP4: Landscape context matters for biodiversity**
+
+    -   *percent type of land use in surroundings, especially agriculture*
+
+        ::: {style="color: firebrick"}
+        [%grassland: not verified (n=50, area=HAI, landscape=round 500m radius buffer)]{.underline}
+        :::
+
+-   **HP4a: Percent arable land:** the more arable land within the landscape, the less species richness on the grassland plots (Loos et al. 2021) arthropod decline for grassland associated with agriculture at landscape scale (Li 2023, Seibold 2019)
+
+    -   *percent arable land within landscape*
+
+        ::: {style="color: firebrick"}
+        [not verified (n=50, area=HAI, landscape=round 500m radius buffer)]{.underline}
+        :::
+
+-   (?) Availability of **hedges** (Fukamachi et al. 2011, Cherrill et al. 2010)
+
+**Landscape history related hypotheses:**
+
+-   ***Historical*** **patch size and isolation:** Current isolation differs strongly from the isolation which occurred when the species richness was formed, because many grasslands disappeared. The extinction of species in response to isolation might be delayed by 100 years or more (extinction debt). Thus, historical isolation might be more important in describing current diversity than recent isolation.Lindborg & Eriksson (2004) Pärtel et al. (2005)
+
+    -   probably only for discussion
+
+-   Older patches show higher biodiversity, younger patches have higher nutrient levels if used as agricultural land before (Honnay 1999)
+
+    ExploPaper Scherreiks et al. 2022: combination of present and historical landscape metrics showed best fit for several functional groups, data from 1820s/50s was often most significant. Used patch buffer zones of 100, 250, 500, 1000 and 2000m, time periods 1820/50, 1960, 2008 with GLMs. For plant species richness, 20 landscape metrics selected, 14 were historical variants, see [summarizing figure](https://link.springer.com/article/10.1007/s10980-021-01392-7/figures/3) for parameter estimates for plant species richness. "Impact of time period and landscape metric differed for each functional group", size of grassland plot not relevant here either, impact of proportional grassland area at landscape scale was observed, though. Historical landscape patch density important for studied functional groups, "time lagged response to changes in landscape structure". Variance explained (see online resource 7): per type of plant species 0.45 to 0.58.
+
+    -   *Grassland history from time series (???) e.g. via NDVI time series with breaking points?*
+    -   *spectral variation / NDVI variation for longest time series possible with Landsat seems like a good idea, hopefully that grasps some of that*
+
+**Disturbance related hypothesis:**
+
+-   **HD1: Intermediate Disturbance Hypothesis**:\
+    Species Richness highest when moderate disturbance intensity (grazing/mowing) because grazing/mowing have disproportional large effect on competitive dominants, gaps are produced where proagules can establish (Fox 1979, Leps 1999)
+
+    -   *LUI (germany wide)*
+
+    -   intermediate LUI and its components lead to highest biodiversity
+
+        ::: {style="color: firebrick"}
+        [not verified (n=150, area=all)]{.underline}
+
+        -   [negative relation LUI & shannon]{.underline}
+
+        -   [only mowing shows a relation, but there's only a difference between higher biodiversity in non-mown and other sites]{.underline}
+        :::
+
+-   **HD2: enhanced productivity** **-\> reduction in diversity**; fertilization amplifies differences between relative growth rates of neighboring ramets, high nutrient adapted plants will out compete others (Pärtel 2002, Sammul 2003) **LU intensification** --\> species loss, adverse effects on dietary specialists, promoting generalist species, homogenized assemblages (Christe 2018) Land use intensification, fertilization -\> reduction of grassland biodiversity: Severe declines in plant species richness have been especially caused by intensive fertilization (Gross 2009; Socher 2012) such that even common plant species have decreased in abundance at alarming rates (Jansen 2019). (Freitag et al. 2021)
+
+    -   *fertilization data / LUI; Poductivity proxy NDVI*
+    -   LU intensification -\> species loss [verified (n=150, areas=all)]{.underline}
+    -   more fertilization -\> species loss [not verified (n=150, areas=all)]{.underline}
+
+-   **HD3: Inter-annual variation in land use intensity** enhances grassland multidiversity (Allan 2014) especially in rarer species
+
+    -   *LUI temporal variability*
+
+        ::: {style="color: firebrick"}
+        [not verified for now (n=150, area=all, t=2006-2013)]{.underline}
+        :::
+
+**Abiotic habitat related hypotheses:**
+
+-   **HA1: Habitat heterogeneity hypothesis**: Abiotic diversity creates different niches --\> higher species richness (Burnett 2008, Heidrich 2020)
+
+    probably only important to compare between explos, perhaps Zeigerwerte model analysis / discussion
+
+    -   *SD abiotic predictors (terrain, ...) in environment*
+
+-   **HA2: Soil properties are relevant for grassland biodiversity**
+
+    -   *soil type, bedrock, distance to groundwater, soil texture...*
+
+-   **HA2a: High pH, higher species richness**: were more abundant during evolutionary times at high latitudes (Pärtel 2002)
+
+    -   *pH*
+
+        ::: {style="color: firebrick"}
+        [not verified for now (n=50, area=ALB)]{.underline}
+        :::
+
+-   **HA2b: Soil depth** effects on grassland communities and landuse practices interact: Soil depth had a strong positive effect on species richness under mowing, suggesting increased space for niche differentiation in deeper soils. In unmown plots, deep soils harboured a similar diversity of species as shallow soils, and our findings suggest that this effect on diversity is due to larger biomass and lower light availability on deep soils. Fertilization and trampling had no effect on diversity. (Braun 2022) 
+
+    -   *soil depth, mowing frequency*
+
+# available predictors
+
+plot neighborhood
+
+-   \% arable land in buffer
+-   \% grassland in buffer
+
+patch metrics
+
+-   grassland patch area
+-   euclidean nearest neighbor distance (enn)
+-   standardized patch complexity (frac)
+-   core area index (cai)
+
+Land use intensity
+
+-   LUI
+-   grazing
+-   mowing
+-   fertilization
+-   inter-annual variation in LUI
+
+soil properties
+
+-   pH
+-   ...?
+
+terrain
+
+-   elevation
+-   slope
+-   aspect
+-   roughness
+-   twi
+
+climate
+
+-   bioclim
+
+satellite data
+
+-   räumlich und zeitliche spektrale Diversität
+-   Produktivität via NDVI
+-   ...?
+
+```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
+dp <- "../data/"
+sap <- here(dp, "/studyarea")
+geo_exp <- st_read(here(sap, "all3explos.gpkg"))
+plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
+lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
+```
+
+```{r eval=F, warning=FALSE}
+#| eval: false
+#| warning: false
+
+# projecting and cropping DLM data 
+dlm_th <- st_read(here("../data/Basisdaten/DLM/Thueringen/orig/veg01_f.shp"))
+dlm_th <- st_transform(dlm_th, crs(lsc_all))
+dlm_th_lsc <- st_intersection(lsc_all[2,], dlm_th)
+st_write(dlm_th_lsc, here("../data/Basisdaten/DLM/Thueringen/changed/veg01_f_proj_cut.shp"), append=F)
+```
+
+```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
+dlm_th <- st_read(here("../data/Basisdaten/DLM/Thueringen/changed/veg01_f_proj_cut.shp"))
+dlm_th <- st_intersection(geo_exp[2,], dlm_th)
+dlm_th_grass <- dlm_th[dlm_th$VEG=="1020",]
+```
+
+```{r}
+#Unify adjacent grassland patches
+
+dlm_th_grass_unif <- st_cast(st_union(dlm_th_grass), "POLYGON")
+# we loose information from ATKIS, but that shouldn't be necessary anyway, right? 
+dlm_th_grass_unif <- st_sf(dlm_th_grass_unif)
+```
+
+### HP1: Grassland patch size
+
+```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
+
+#calculate grassland area around patch
+d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
+has_plot <- st_contains(dlm_th_grass_unif, d_geo)
+has_plot <- unlist(as.character(has_plot))
+has_plot[has_plot == "integer(0)"] <- NA
+dlm_th_grass_unif$has_plot <- !is.na(has_plot)
+grass_plot <- dlm_th_grass_unif[dlm_th_grass_unif$has_plot == TRUE,]
+grass_plot$grassl_area <- st_area(grass_plot)
+plots_grass_HAI <- st_intersection(grass_plot, d_geo[d_geo$explrtr == "HAI" & d_geo$type == "grassland",])
+
+```
+
+The following map shows
+
+-   Which grassland geometries contain exploratory plots
+
+-   What is the grassland area that surrounds the plots
+
+```{r}
+hasplot_cols <- c("#139404", "#a0d49a")
+m <- mapview(dlm_th_grass_unif, 
+        col.regions=hasplot_cols, 
+        map.types = "Esri.WorldImagery",
+        layer.name="has explo plot")+
+  mapview(dlm_th_grass, 
+        color="#0b5802", 
+        col.regions="#0b5802",
+        alpha.regions=0,
+        layer.name="lots")+
+  mapview(plots_grass_HAI, 
+          zcol="grassl_area",
+          layer.name="srndg grssl area")
+crds <- c(10.38, 51.221)
+m@map %>% setView(crds[1], crds[2], zoom = 12)
+```
+
+As anticipated, there is, on its own, no relationship between the grassland area and biodiversity (only from 2013, though, at the time and only for HAI).
+
+```{r}
+#| layout-ncol: 2
+
+plots_grass_HAI$gl_area <- as.numeric(plots_grass_HAI$grassl_area)
+
+ggplot(plots_grass_HAI, aes(log(gl_area), shannon)) +
+  geom_point()+
+    ggtitle("grassland area x biodiversity", subtitle=paste0("HAI, n=", nrow(plots_grass_HAI)))+theme_minimal()+  xlab("surrounding grassland area (log / m²)")+ ylab("shannon index")
+```
+
+No correlation:
+
+```{r}
+ct <- cor.test(plots_grass_HAI$shannon, plots_grass_HAI$gl_area)
+
+paste("r grassland area x biodiv = ", round(ct$estimate, digits=2), "; p value=", round(ct$p.value, digits=2))
+
+
+```
+
+→ HP1: no clear evidence from HAI with 2013 dataset.
+
+### Land use **composition within surroundings**
+
+Looking into the proportion of DLM types within a buffer of radius 500m² surrounding the patch:
+
+Make a buffer of radius = 500m², i.e. 196.350m² around explo plots and take a look at proportions of DLM inside the buffer. Veg04 (Vegetationsmerkmale) was eliminated since it caused overlapping.
+
+rel = relief (Felsen / Felsblock)
+
+https://www.adv-online.de/icc/extdeu/nav/a63/binarywriterservlet%3FimgUid%3D9201016e-7efa-8461-e336-b6951fa2e0c9%26uBasVariant%3D11111111-1111-1111-1111-111111111111
+
+Vegetation categories are as follows:
+
+![](ATKIS_vegetation.png)
+
+```{r, eval=F}
+#| eval: false
+#| warning: false
+library(tools)
+
+#Calculate proportion of other DLM types
+
+######### preparing a mostly overlap free version of DLM polygons ##############
+# read in full DLM 
+# projecting and cropping DLM data 
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+dlm_files <- list.files(here("../data/Basisdaten/DLM/Thueringen/orig/"), 
+                        pattern=".shp", full.names=T)
+dlm_files_names <- list.files(here("../data/Basisdaten/DLM/Thueringen/orig/"), 
+                        pattern=".shp", full.names=F)
+# group by type and use only f (l?)
+dlm_files_f <- dlm_files[substrRight(substring(dlm_files_names, 1, 7), 1) == "f"]
+dlm_files_use <- dlm_files_f[4:length(dlm_files_f)] # not using geb category (these are only Verwaltungseinheiten)
+full_dlm_th <- lapply(seq(dlm_files_use), function(i){
+  st_read(dlm_files_use[i])
+})
+
+# crop before transforming to make it go faster
+HAItemplate <- st_transform(geo_exp[2,], crs(full_dlm_th[[1]]))
+full_dlm_th_exp <- lapply(X = full_dlm_th, FUN = st_intersection, y = HAItemplate)
+full_dlm_th_exp_transf <- lapply(X = full_dlm_th_exp, FUN = st_transform, crs = crs(geo_exp))
+names(full_dlm_th_exp_transf) <- substrRight(file_path_sans_ext(dlm_files_use), 7)
+
+
+# keep only OBJART & OBJART_TXT to be able to put them all together
+full_dlm_th_exp_transf_subs <- lapply(seq(full_dlm_th_exp_transf), function(i){
+  subs <- full_dlm_th_exp_transf[[i]][,c(1, 3, 4, 10)]
+  if(nrow(subs) > 0 ){
+      names(subs)[4] <- "add_info"
+      subs$nam <- names(full_dlm_th_exp_transf[i])
+      print(i)
+      subs
+  } 
+})
+full_dlm_th <- do.call(rbind, full_dlm_th_exp_transf_subs)
+st_write(full_dlm_th,here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_exploHAI.gpkg"))
+```
+
+```{r}
+#| results: 'hide'
+dlm <- st_read(here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_exploHAI.gpkg"))
+
+# unique(dlm$add_info[dlm$OBJART_TXT == "AX_Landwirtschaft"]) # which vegetation sub categories available
+dlm$veg_info <- NA
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1020"] <- "grassland"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1021"] <- "meadow_orchard"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1010"] <- "arable_land"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1050"] <- "orchard"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1030"] <- "horticultural_land"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1031"] <- "nursery"
+dlm$veg_info[dlm$OBJART_TXT == "AX_Landwirtschaft" & dlm$add_info == "1011"] <- "orchard_field"
+
+# veg04_f seems to be not that useful as "vegetationsmerkmal" overlapping other 
+# categories
+dlm <- dlm[dlm$nam!="veg04_f",]
+
+# creating relevant info column for the categories that are probably interesting to us
+dlm$rel_info <- dlm$OBJART_TXT
+dlm$rel_info[dlm$nam=="veg01_f"] <- dlm$veg_info[dlm$nam=="veg01_f"] # adding more veg info
+
+# make relevant color scheme 
+dlm$colornam <- dlm$nam #using the layer names (general categories like siedlung / verkehr) to start for the less relevant main categories
+
+dlm$colornam[dlm$OBJART_TXT == "AX_Landwirtschaft"] <- dlm$rel_info[dlm$OBJART_TXT == "AX_Landwirtschaft"] # use more veg info 
+dlm$colornam[dlm$colornam=="veg02_f"] <- "forest"
+dlm$rel_cat <- dlm$colornam
+
+dlmcols <- c("#1050D6", "#5378C5", 
+             "#9C7E6A", 
+             "#E56290", "#BE5077", "#E68FAE", 
+             # 10 vegetation categories
+             "#B4E395","#C15208", "#11973C", "#499862", "#E4884B", "#33593F", "#4F715A", "#52AB17",
+             "#37740E", "#52AB17", 
+             "#C5D0C9", "#727272", "#F4F5F0", "#1F1F1F")
+dlmcolnams <- unique(dlm$colornam)
+dlmcolnams[is.na(dlmcolnams)] <- "other_agric"
+
+
+coldf <- data.frame(colors=dlmcols, colornames = dlmcolnams)
+
+# add colors to to dlm
+dlm <- merge(dlm, coldf, by.x="colornam", by.y="colornames")
+
+nam_rel_info_lookup <- unique(st_drop_geometry(dlm[ , c("rel_cat", "nam", "rel_info", "colors")]))
+
+ggplot(dlm, aes(x=reorder(rel_cat, rel_cat, function(x)-length(x)), 
+                fill=colornam)) +
+  geom_bar()+ 
+  xlab("ATKIS category")+
+  ggtitle("total amount of ATKIS categories in explo area HEG")+
+  scale_fill_manual("",values=unique(dlm$colors))+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+st_write(dlm,here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_relcat_exploHAI.gpkg"), append=F)
+```
+
+```{r}
+# show categories and legend
+lookup_ordered <- nam_rel_info_lookup[order(nam_rel_info_lookup$nam),] 
+
+lookup_ordered %>% kbl() %>% 
+  kable_paper(full_width = T) %>% 
+  column_spec(5, color = "white",
+              background = lookup_ordered$colors,
+              popover = paste("am:", mtcars$am[1:8]))
+```
+
+```{r}
+#| warning: false
+#| results: hide
+
+dlm <- st_read(here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_relcat_exploHAI.gpkg"))
+
+# crop DLM to buffer
+buf <- st_buffer(plots_grass_HAI, 500)
+dlm_buf <- st_intersection(dlm, buf)
+# dlm_grouped_buf <- dlm_buf %>% group_by(GpPlotID)
+dlm_grouped_buf <- dlm_buf %>% group_by(ep)
+dlm_grouped_buf$gi <- dlm_grouped_buf %>% group_indices()
+tab <- dlm_grouped_buf %>% tally() # counting how many landscape types per buffer
+
+# group by relevant landscape types 
+landtype_sum <- lapply(seq(n_groups(dlm_grouped_buf)), function(i){
+  b <- dlm_grouped_buf[dlm_grouped_buf$gi == i,] # pick one buffer
+  bsum <- b %>% group_by(rel_cat, nam, colors, colornam) %>% summarise()
+  bsum$ep <- unique(b$ep)
+  bsum$area <- st_area(bsum)
+  bsum$areanum <- as.numeric(st_area(bsum))
+  bsum$areak <- bsum$areanum/1e+06
+  bsum
+})
+
+names(landtype_sum) <- unlist(as.vector(group_keys(dlm_grouped_buf)))
+```
+
+```{r}
+crds <- c(10.339, 51.118)
+m2 <- mapview(dlm, zcol="colornam", 
+        col.regions=dlm$colors)+
+  mapview(plots_grass_HAI)+
+  mapview(buf)
+m2@map %>% setView(crds[1], crds[2], zoom = 12)
+
+```
+
+##### exemplary plots
+
+```{r}
+#| layout: [[1,1], [1,1]]
+bufvec <- c(28, 19, 3, 38)
+
+maplist <- lapply(seq(bufvec), function(i){
+  data <- landtype_sum[[i]]
+  
+  mapcall <- mapview(data, zcol="colornam",
+        col.regions=data$colors,
+        layer.name="ATKIS category", 
+        map.types = "Esri.WorldImagery",
+        legend=FALSE)
+  
+  mapcall
+})
+
+
+# latticeView(maplist[[1]], maplist[[2]], 
+#             maplist[[4]], maplist[[5]], 
+#             no.initial.sync = FALSE)
+
+
+maplist[[1]]
+maplist[[2]]
+maplist[[3]]
+maplist[[4]]
+
+```
+
+To do: Work on the categories:
+
+-   remove rel01_f? is it relevant for other areas?
+
+-   separate stehendes Gewässer and Fließgewässer (in gew01_f)
+
+-   make something like Teilversiegelt & Versiegelt from sie01 and sie02
+
+-   join categories in veg01? e.g. orchards and nursery? Not so sure that would be a good idea... (?)
+
+-   what about Sumpf?
+
+-   Add Gehölz to Wald?
+
+-   Verkehr komplett zu versiegelte Fläche Maybe sum up Gehölz and Wald into one category? Take a look at northern plot for this...
+
+```{r}
+#| layout: [[1,1], [1,1]]
+
+pc <- lapply(seq(bufvec), function(i){
+  data <- landtype_sum[[i]]
+
+  plotcall <- ggplot(data, aes(y=areanum, x=rel_cat, fill=rel_cat))+
+  geom_bar(stat="identity")+
+  xlab("ATKIS category")+ylab("area within 500m² buffer around plot (km²)")+
+  ggtitle(data$ep)+
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  scale_fill_manual(values=data$colors)
+
+  plotcall
+
+})
+
+pc[[1]]
+pc[[2]]
+pc[[3]]
+pc[[4]]
+```
+
+Biodiversity and land use composition in the surrounding buffer:
+
+```{r}
+ex <- landtype_sum[[19]]
+ntypes <- dim(ex)[1]
+
+# for all buffers: what's the correlation between biodiversity and the amount of different land uses in the buffer? 
+shan_buf <- sapply(seq(landtype_sum), function(i){
+  d_geo$shannon[d_geo$ep == unique(landtype_sum[[i]]$ep)]
+})
+
+# simply counting the amount of different landuse types within buffer 
+ntypes <- lapply(landtype_sum, dim)
+ntypes_dlm <- sapply(ntypes, `[[`, 1)
+
+# what's the category of highest proportion?
+
+
+nam_rel_info_lookup_unique_cat <- 
+  nam_rel_info_lookup[!duplicated(nam_rel_info_lookup[,c('rel_cat')]),]
+
+
+props <- lapply(seq(landtype_sum), function(i){
+  areaprop <- st_area(landtype_sum[[i]])/sum(st_area(landtype_sum[[i]]))
+  prd <- data.frame(rel_cat = landtype_sum[[i]]$rel_cat, area_prop = areaprop)
+  propdf <- merge(prd, nam_rel_info_lookup_unique_cat, by="rel_cat", all.y=F)
+  
+  maxprop <- propdf$rel_cat[which(propdf$area_prop == max(propdf$area_prop))]
+  p_ar <- as.numeric(propdf$area_prop[propdf$rel_cat == "arable_land"])
+  p_gr <- as.numeric(propdf$area_prop[propdf$rel_cat == "grassland"])
+  p_fo <- as.numeric(propdf$area_prop[propdf$rel_cat == "forest"])
+  p_cnst <- as.numeric(sum(propdf$area_prop[propdf$rel_cat == c("sie01_f", "sie02_f", "sie03_f", "ver01_f", 
+                                                 "ver02_f", "ver03_f", "ver04_f", "ver06_f")]))
+
+  return(list(maxprop, propdf, p_ar, p_gr, p_fo, p_cnst))
+})
+
+maxprop <- sapply(props, `[[`, 1)
+
+dlmtypes <- data.frame(shannon = unlist(shan_buf), 
+                       n_dlm_types = ntypes_dlm,
+                       maxprop = maxprop)
+dlmtypes$ep <- unlist(as.vector(group_keys(dlm_grouped_buf)))
+
+dlmtypes <- merge(dlmtypes, lookup_ordered, by.x="maxprop", by.y="rel_cat")
+drops <- c("nam", "rel_info")
+dlmtypes <- dlmtypes[,!(names(dlmtypes) %in% drops)]
+
+dlmtypes$maxprop[ grepl("Wald", dlmtypes$maxprop) ] <- "forest"
+
+
+ggplot(dlmtypes, aes(n_dlm_types, shannon, color=maxprop)) +
+  geom_point(size=2)+
+  ggtitle("DLM types within buffer x biodiversity")+
+  xlab("amount of dlm types in buffer")+ ylab("shannon index")+
+  scale_color_manual("maximum proportion", values=unique(dlmtypes$colors))
+
+ggplot(dlmtypes, aes(n_dlm_types, shannon, group=n_dlm_types)) +
+  geom_boxplot()+
+    ggtitle("DLM types within buffer x biodiversity")+
+  xlab("amount of dlm types in buffer")+ ylab("shannon index")
+
+ggplot(dlmtypes, aes(maxprop, shannon, group=maxprop, color=maxprop)) +
+  geom_boxplot()+
+  ggtitle("maximum proportion DLM types within buffer x biodiversity")+
+  xlab("dlm type with most area representation in buffer")+ ylab("shannon index")+
+  scale_color_manual("maximum proportion", values=unique(dlmtypes$colors))
+
+
+propdf <- lapply(props, `[[`, 2)
+
+p_ar <- sapply(props, `[[`, 3)
+p_ar[sapply(p_ar, length) == 0] <- NA
+dlmtypes$p_ar <- unlist(p_ar)
+
+p_gr <- sapply(props, `[[`, 4)
+p_gr[sapply(p_gr, length) == 0] <- NA
+dlmtypes$p_gr <- unlist(p_gr)
+
+p_fo <- sapply(props, `[[`, 5)
+p_fo[sapply(p_fo, length) == 0] <- NA
+dlmtypes$p_fo <- unlist(p_fo)
+
+p_cnst <- sapply(props, `[[`, 6)
+p_cnst[sapply(p_cnst, length) == 0] <- NA
+dlmtypes$p_cnst <- unlist(p_cnst)
+
+
+```
+
+### HP4a: Percent arable land
+
+```{r}
+#| layout-ncol: 2
+
+ct <- cor.test(dlmtypes$shannon, dlmtypes$p_gr)
+paste("r % grassland within buffer x diversity = ", round(ct$estimate, digits=2), "; p value=", round(ct$p.value, digits=2))
+
+ct <- cor.test(dlmtypes$shannon, dlmtypes$p_ar)
+paste("r % arable land within buffer x diversity = ", round(ct$estimate, digits=2), "; p value=", round(ct$p.value, digits=2))
+
+ggplot(dlmtypes, aes(p_ar, shannon)) +
+  geom_point(size=2)+
+  ggtitle("percent arable land within buffer x biodiversity")+
+  xlab("percent arable land within buffer")+ ylab("shannon index")+
+  theme_minimal()
+ggplot(dlmtypes, aes(p_gr, shannon)) +
+  geom_point(size=2)+
+  ggtitle("percent grassland within buffer x biodiversity")+
+  xlab("percent grassland within buffer")+ ylab("shannon index")+
+  theme_minimal()
+
+```
+
+## Patch metrics
+
+```{r}
+#| warning: false
+#| results: hide
+#| 
+pm_vec <- st_read(paste0(here("../data/Basisdaten/DLM/Thueringen/changed/pm_vec.gpkg")))
+
+d_geo_patch <- st_intersection(d_geo, pm_vec)
+```
+
+### HP2 Irregularly shaped patches & HP3: Grassland next neighbor
+
+```{r}
+#| layout-ncol: 2
+
+# See calc_patch_metrics scripts trying landscapemetrics package and RS Github Repo
+
+# area: patch area
+# cai: Core Area Index; percentage of a patch that is core area
+# enn: euclidean nearest neighbour distance
+# frac: standardized patch complexity (~perimeter:size)
+# frac = 1 for a squared patch shape form and frac = 2 for a irregular patch shape
+
+
+ggplot(d_geo_patch, aes(area, shannon))+
+  geom_point()+
+  theme_minimal()+
+  ggtitle("patch area x biodiversity", subtitle = paste0("n = ", nrow(d_geo_patch)))
+
+ggplot(d_geo_patch, aes(enn, shannon))+
+  geom_point()+
+  theme_minimal()+
+  ggtitle("euclidean nearest neighbour distance x biodiversity", subtitle = paste0("n = ", nrow(d_geo_patch)))
+
+ggplot(d_geo_patch, aes(frac, shannon))+
+  geom_point()+
+  theme_minimal()+
+  ggtitle("standardized patch complexity x biodiversity", subtitle = paste0("n = ", nrow(d_geo_patch)))
+
+ggplot(d_geo_patch, aes(cai, shannon))+
+  geom_point()+
+  theme_minimal()+
+  ggtitle("core area index x biodiversity", subtitle = paste0("n = ", nrow(d_geo_patch)))
+
+
+dgc <- d_geo_patch |> 
+  data.frame() |> 
+  select(shannon, cai, frac, enn, area) 
+  
+cmt <- psych::corr.test(dgc, method="spearman")
+corrplot::corrplot(cmt$r, p.mat= cmt$p,
+                   method="number", 
+                   type="lower", 
+                   diag = F, 
+                   tl.col="black")
+```
+
+→ There is no correlation between biodiversity and any of the patch metrics: Patch area, Core Area Index (cai), Euclidian nearest neighbour distance (enn), Patch complexity (frac) for HAI, n=50.
+
+### HD1: Intermediate Disturbance Hypothesis, HD2: More Land use / fertilization → species loss
+
+```{r}
+lui <- read.csv(list.files(here("../data/LUI/LuiData/"), pattern=".txt$", full.names=T))
+
+# fix some things in LUI dataset to merge correctly 
+lui$year <- substring(lui$YEAR, 12,15)
+
+idshort <- lui$PLOTID[nchar(lui$PLOTID) == 4] 
+idshortfix <- paste0(substring(idshort, 1,3), "0", substring(idshort, 4,4))
+lui$PLOTID[nchar(lui$PLOTID) == 4]  <- idshortfix
+
+
+lui13 <- filter(lui, year=="2013")
+d_lui <- merge(d_geo, lui13, by.x="ep", by.y="PLOTID")
+# table(d_lui$year) # now all 150plots are merged 
+
+ggplot(d_lui, aes(LUI, shannon))+
+  geom_point()+
+  geom_smooth(span=2)+
+  theme_minimal()+
+  ggtitle("LUI x biodiversity", subtitle = paste0("n = ", nrow(d_lui[d_lui$year == "2013",])))
+
+```
+
+```{r}
+#| layout-ncol: 3
+ggplot(d_lui, aes(G_STD, shannon))+
+  geom_point()+
+  theme_minimal()+
+  ggtitle("grazing x biodiversity", subtitle = paste0("n = ", nrow(d_lui[d_lui$year == "2013",])))
+
+ggplot(d_lui, aes(y=shannon, x=M_STD))+
+  geom_boxplot(aes(group=M_STD))+
+  theme_minimal()+
+  ggtitle("mowing x biodiversity", subtitle = paste0("n = ", nrow(d_lui[d_lui$year == "2013",])))
+
+ggplot(d_lui, aes(F_STD, shannon))+
+  geom_point()+
+  theme_minimal()+
+  ggtitle("fertilization x biodiversity", subtitle = paste0("n = ", nrow(d_lui[d_lui$year == "2013",])))
+
+
+dl <- d_lui |> data.frame() |> select(shannon, LUI, G_STD, M_STD, F_STD)
+
+
+```
+
+```{r}
+cmt <- psych::corr.test(dl, method="spearman")
+corrplot::corrplot(cmt$r, 
+                   p.mat= cmt$p,
+                   method="number", 
+                   type="lower", 
+                   diag = F, 
+                   tl.col="black")
+```
+
+-   A significant correlation (using spearman for non-linear point cloud) between **LUI** and biodiversity (shannon index) can be detected, for mowing and fertilization that is the case too, not for grazing, though. All associations are rather small.
+
+-   It seems like intermediate disturbances lead to
+
+    -   lowest biodiversity, though, for **LUI**.
+
+    -   For **grazing**, Hypothesis might apply, but association is not significant.
+
+    -   **Mowing** shows a tendency to contradict the hypothesis, too, with highest biodiversity levels where mowing is nonexistent.
+
+    -   for **fertilization**, association is not significant, anyway looks the opposite way, too.
+
+I.e. seems to be meant for grazing, which on its own is not significant here, LUI's behaviour is more of a negative association, i.e. the more disturbances, the less diverse the plot.
+
+### HD3: Inter-annual variation in land use intensity enhances diversity
+
+```{r}
+
+d_lui <- merge(d_geo, lui, by.x="ep", by.y="PLOTID")
+
+sdLUItemp <- d_lui |> group_by(year) |> 
+  filter(year<=2013) |>
+  group_by(ep) |>
+  summarise(sdLUItemp = sd(LUI)) |>
+  data.frame()
+
+d_geo_sd <- merge(sdLUItemp, d_geo, by="ep")
+
+
+cor.test(d_geo_sd$shannon, d_geo_sd$sdLUItemp)
+
+
+d_geo_sd_ex <- d_geo_sd |>
+  arrange(desc(sdLUItemp)) |>
+  slice(c(1:3), c(74, 76), c(147:150))
+
+sel_ep <- d_geo_sd_ex$ep
+col <- c(rep("high", 3), rep("median", 3), rep("low", 3))
+coldf <- data.frame(sel_ep, col)
+
+lui_ex <- lui |> 
+  filter(PLOTID %in% sel_ep)
+
+lui_ex <- merge(lui_ex, coldf, by.x="PLOTID", by.y="sel_ep")
+
+# show shannon by LUI variation 
+ggplot(d_geo_sd, aes(sdLUItemp, shannon))+
+  geom_point()+
+  ggtitle("Land use intensity temporal variation (years 2006 to 2013) by biodiversity (2013")+
+  xlab("temporal variation LUI ")+
+  theme_minimal()
+
+
+ggplot(lui_ex, aes(year, LUI, group=PLOTID, color=col))+
+  geom_textline(aes(label = PLOTID), 
+                hjust = .9, lwd=.7, size=3) +
+  ggtitle("exemplary high, median and low variation in LUI plots")+
+  scale_color_manual("var",
+                    values=c("goldenrod2", "firebrick4","darkorange3"))+
+  theme_minimal()
+```
+
+There is no correlation between the temporal variation and biodiversity from 2006 to 2013.
+
+### HA2: Soil properties
+
+```{r}
+rv <- 
+  list.files(here(dp, "/Basisdaten/soil/"), pattern="BK50", full.names = T)
+bk50s <- rast(rv)
+
+d_geo_ph <- st_transform(d_geo, crs(bk50s))
+d_geo_ph_e <- extract(bk50s, d_geo_ph)
+
+d_geo_BK <- cbind(d_geo, d_geo_ph_e)
+
+BK_div <- d_geo_BK |> 
+  data.frame() |> 
+  select(shannon, GRUND, FK, NFK, LK, PH_LN)
+
+cm <- psych::corr.test(BK_div, use="pairwise.complete.obs")
+corrplot::corrplot(cm$r, p.mat= cm$p,
+                   method="number", 
+                   type="lower", 
+                   diag = F, 
+                   tl.col="black")
+
+```
+
+No correlation between biodiversity (shannon) and soil data (pH, GRUND (Grundwasser? Grundgestein?), Feldkapazität (FK), Nutzbare Feldkapazität (nFK), Luftkapazität (LK)) for n=50, area=ALB.
+
+### Terrain, climate, weather
+
+Correlations between biodiversity (first column) and terrain data (first 6 rows), bioclim climate data (next 19 rows) and bioclim weather data from 2021 (last 19 rows).
+
+```{r}
+#| fig.height: 9
+
+# terrain
+ter <- rast(list.files(here("../data/Basisdaten/topography/copernicus/"), pattern="HAI", full.names=T))
+n <- tools::file_path_sans_ext(list.files(here("../data/Basisdaten/topography/copernicus/"), pattern="HAI", full.names=F))
+names(ter) <- n
+
+# climate
+bioclim_vars <- c("Ann_Mean_Temp", "Mean_Drnl_Rng", "Isotherm", 
+                  "Temp_Seas", "Max_T", "Min_T", "T_Ann_Rng", 
+                  "Mean_T_Wet", "Mean_T_Dry", "Mean_T_Warm", 
+                  "Mean_T_Cold", "Ann_Prec", "Prec_Wet", "Prec_Dry", "Prec_Seas", "Prec_Wet", "Prec_Dry", "Prec_Warm", "Prec_Cold")
+
+
+clim <- rast(list.files(here("../data/Basisdaten/climate/"), pattern="HAI",full.names=T)[1])
+names(clim) <- bioclim_vars
+
+# weather
+weath <- rast(here(dp, "/Basisdaten/weather/HAI_bioclim-2021.tif"))
+names(weath) <- paste0("W", bioclim_vars)
+
+
+d_geo_ter <- st_transform(d_geo, crs(ter))
+d_geo_clim <- st_transform(d_geo, crs(clim))
+
+# extract and put together 
+terex <- extract(ter, d_geo_ter)
+climex <- extract(clim, d_geo_clim)
+wthex <- extract(weath, d_geo_clim)
+
+d_geo_ter <- cbind(d_geo, terex)
+d_geo_tc <- cbind(d_geo_ter, climex)
+d_geo_tcw <- cbind(d_geo_tc, wthex)
+
+
+d_geo_tcw <- d_geo_tcw |> 
+  filter(explrtr == "HAI")
+
+d_geo_tcw_cor <- d_geo_tcw |> 
+  data.frame() |> 
+  select(shannon, 53:98, -ID.1, -ID.2)
+
+# cm <- psych::corr.test(d_geo_tcw_cor, use="pairwise.complete.obs")
+# corrplot::corrplot(cm$r, p.mat= cm$p,
+#                    method="number", 
+#                    type="lower", 
+#                    diag = F, 
+#                    tl.col="black", 
+#                    tl.cex=.6,
+#                    number.cex=.4, 
+#                    pch.cex = .6)
+
+```
+
+### Soil data (BÜK 200.000)
+
+```{r}
+#| warning: false
+#| results: hide
+
+buek200_lscs <- st_read(here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"))
+st_agr(buek200_lscs) = "constant"
+
+buekex <- st_intersection(buek200_lscs, d_geo)
+
+
+#### troubleshooting all SEG plots appear twice in intersection 
+# table(d_geo$ep)
+# buekex[buekex$ep=="SEG34",]
+# ids <- which(table(buekex$ep)==2)
+# lapply(seq(ids), function(i) {
+#   buekex$NRKART[buekex$ep==names(ids)[i]]
+# })
+
+### something is wrong with the buek200_lscs file, same NRKART, but different NAME and OBJECTID, eliminating one row
+
+ids <- which(table(buekex$ep)==2)
+sel <- lapply(seq(ids), function(i) {
+  # buekex$NRKART[buekex$ep==names(ids)[i]]
+  buekex[buekex$ep==names(ids)[i],][1,]
+})
+sel <- do.call("rbind", sel)
+
+`%notin%` <- Negate(`%in%`)
+buekex <- rbind(buekex[buekex$ep %notin% names(ids),], sel)
+```
+
+### Get data together
+
+```{r}
+d_geo_abiot <- buekex |> 
+  select(ep, eveness, biomass_g, NRKART) |> 
+  cbind(d_geo_tcw_cor)
+
+plot_nbh <- dlmtypes |>
+  select(n_dlm_types, p_ar, p_gr, p_fo, ep)
+
+d_geo_abiot_nbh <- merge(d_geo_abiot, plot_nbh, by="ep")
+
+d_geo_p <- d_geo_patch |>
+  data.frame() |>
+  select(area, cai, enn, frac, ep) 
+
+d_geo_abiot_nbh_p <- merge(d_geo_abiot_nbh, d_geo_p, by="ep")
+
+dl <- d_lui |> 
+  data.frame() |> 
+  filter(year==2013) |>
+  select(LUI, G_STD, M_STD, F_STD, ep)
+
+alldat <- merge(d_geo_abiot_nbh_p, dl, by="ep")
+
+
+```
+
+## all variables together (no BK50 data yet)
+
+```{r}
+#| fig.height: 9
+
+alldatdf <- data.frame(alldat)
+alldatdf <- alldatdf[2:62]
+
+cm <- psych::corr.test(alldatdf[,c(4,1,2,3,5:ncol(alldatdf)-1)], use="pairwise.complete.obs")
+corrplot::corrplot(cm$r, p.mat= cm$p,
+                   method="number", 
+                   type="lower", 
+                   diag = F, 
+                   tl.col="black", 
+                   tl.cex=.6,
+                   number.cex=.3, 
+                   pch.cex = .3)
+
+
+```
+
+Significant variables only to get a better look at the numbers:
+
+```{r}
+sigvars <- which(cm$p[,1] < 0.05)
+
+sigdat <- alldatdf[names(alldatdf) %in% names(sigvars)]
+dat <- sigdat[,c(3,4:ncol(sigdat))]
+
+cm <- psych::corr.test(dat, use="pairwise.complete.obs")
+corrplot::corrplot(cm$r, p.mat= cm$p,
+                   method="number", 
+                   type="lower", 
+                   diag = F, 
+                   tl.col="black", 
+                   tl.cex=.6,
+                   number.cex=.6, 
+                   pch.cex = .6)
+```
+
+## Multivariate exploration // modeling
+
+```{r}
+m <- glm(formula= shannon ~ HAI_dem25+Ann_Mean_Temp+Max_T+Min_T+Mean_T_Dry+Mean_T_Warm+Mean_T_Cold+Prec_Wet+WAnn_Mean_Temp+WMax_T+WMean_T_Wet+WMean_T_Dry+WMean_T_Cold+WAnn_Prec+LUI+M_STD, data=dat)
+
+summary(m)
+car::vif(m)
+
+```
+
+VIF values are super high, much multicollinearity as expected, and most variables are not even significant, thus: PCA
+
+```{r}
+library(factoextra)
+
+colSums(is.na(dat))
+
+# scale and perform PCA
+dn <- scale(dat[,2:ncol(dat)])
+dat_norm <- cbind(dat["shannon"], dn)
+corr_matrix <- cor(dat_norm[,2:ncol(dat_norm)])
+data.pca <- princomp(corr_matrix)
+
+pc <- prcomp(dat_norm[,-1],
+             center = TRUE,
+            scale. = FALSE,
+            retx=TRUE)
+attributes(pc)
+
+#summary(data.pca)
+fviz_eig(pc, addlabels = TRUE)
+fviz_eig(data.pca, addlabels = TRUE)
+
+fviz_cos2(data.pca, choice = "var", axes = 1)
+fviz_cos2(data.pca, choice = "var", axes = 2)
+data.pca$loadings[, 1:2]
+plot(data.pca$scores[,1:2])
+
+fviz_cos2(pc, choice = "var", axes = 1)
+fviz_cos2(pc, choice = "var", axes = 2)
+pc$x[, 1:2]
+```
+
+97% of data variance is represented by first component, 1.5% by second component and the rest is negligible.
+Cos2 shows how much variables are represented in PC, in this case the first one:
+
+
+```{r}
+fviz_pca_var(data.pca, col.var = "cos2",
+            gradient.cols = c("red", "yellow", "darkgreen"),
+            repel = TRUE)
+
+```
+
+```{r}
+#| layout-ncol: 2
+dat_pc <- cbind(dat, pc$x[, 1:2])
+
+ggplot(dat_pc, aes(PC2, shannon))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  theme_minimal()+
+  ggtitle("PC2 (LUI and mowing) x biodiversity (shannon)")
+
+ggplot(dat_pc, aes(PC1, shannon))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  theme_minimal()+
+  ggtitle("PC1 (terrain and climate variables) x biodiversity (shannon)")
+
+
+
+m <- glm(formula= shannon ~ PC1 + PC2, data=dat_pc, 
+         family = gaussian)
+
+summary(m)
+# car::vif(m)
+
+```
+
+
+## Sources:
+
+https://gistbok.ucgis.org/bok-topics/landscape-metrics#:\~:text=Landscape%20metrics%E2%80%94also%20known%20as,within%20a%20defined%20geographic%20area.
+
+# to do:
+
+Fließgewässer, stehende trennen, sonst versiegelte Fläche zusammenfassen
