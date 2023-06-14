@@ -1,0 +1,77 @@
+---
+title: "sPlot open"
+author: "Maite"
+format: html
+editor: visual
+theme: flatly
+---
+
+Downloaded from \[here\](https://idata.idiv.de/ddm/Data/ShowData/3474?version=76) the 14.06.23, version 2.
+
+```{r}
+library(here)
+library(sf)
+library(mapview)
+```
+
+
+```{r}
+# explo geometries
+sap <- here("../data/studyarea")
+geo_exp <- st_read(here(sap, "all3explos.gpkg"))
+plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
+lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
+```
+
+sPlotOpen.RData contains 5 objects, CMW_CWV.oa, DT2.oa, header.oa, metadata.oa and reference.oa
+
+```{r}
+load(here("../data/sPlotOpen/sPlotOpen.RData"))
+
+head(header.oa)
+head(DT2.oa)
+head(CWM_CWV.oa)
+
+names(CWM_CWV.oa)
+```
+
+Header:
+
+```{r}
+h <- header.oa
+
+plots = st_as_sf(h, coords = c("Longitude","Latitude"), 
+                 remove = FALSE, crs = st_crs(4326))
+
+plotIDs <- plots |>
+  filter(Country == "Germany") |>
+  filter(Grassland == TRUE) |>
+  distinct(PlotObservationID) |>
+  pull(PlotObservationID)
+
+
+h <- header.oa |>
+  filter(PlotObservationID %in% plotIDs)
+
+d <- DT2.oa |>
+  filter(PlotObservationID %in% plotIDs)
+
+cwm <- CWM_CWV.oa |>
+  filter(PlotObservationID %in% plotIDs)
+
+mapview(plots_exp)+mapview(geo_exp)+mapview(lsc_all, alpha=0)+
+  mapview(plots_g, col.regions="darkred", size=1)
+
+```
+
+PlotObservationID 704613 in HEG e.g.
+```{r}
+d <- CWM_CWV.oa
+
+d |>
+  filter(PlotObservationID == 704613)
+
+sPlotOpen_citation(IDs=plotIDs, level="database",
+                   out.file="../temp/database_test.bib")
+```
+

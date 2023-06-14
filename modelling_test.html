@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.335">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Maite">
+
+<title>Multivariate exploration // modeling</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="modelling_test_files/libs/clipboard/clipboard.min.js"></script>
+<script src="modelling_test_files/libs/quarto-html/quarto.js"></script>
+<script src="modelling_test_files/libs/quarto-html/popper.min.js"></script>
+<script src="modelling_test_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="modelling_test_files/libs/quarto-html/anchor.min.js"></script>
+<link href="modelling_test_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="modelling_test_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="modelling_test_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="modelling_test_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="modelling_test_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Multivariate exploration // modeling</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Maite </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<div class="cell">
+
+</div>
+<div class="cell">
+
+</div>
+<p>Variables that are available:</p>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>'data.frame':   50 obs. of  60 variables:
+ $ ep             : chr  "HEG01" "HEG02" "HEG03" "HEG04" ...
+ $ shannon        : num  2.2 1.56 1.71 0.65 1.98 2.27 1.98 2.24 2.78 2.27 ...
+ $ eveness        : num  0.71 0.49 0.56 0.24 0.61 0.66 0.54 0.65 0.68 0.64 ...
+ $ biomass_g      : num  271 284 300 398 148 ...
+ $ NRKART         : Factor w/ 8 levels "5","6","24","25",..: 3 3 3 3 8 6 6 6 6 6 ...
+ $ HAI_aspect25   : num  352 229 217 359 319 ...
+ $ HAI_dem25      : num  292 288 286 284 450 ...
+ $ HAI_roughness25: num  7.33 5.4 5.08 3.11 7.11 ...
+ $ HAI_slope25    : num  7.41 4.38 4.15 3.38 5.84 ...
+ $ HAI_twi25      : num  7.04 9.2 8.06 9.06 7.31 ...
+ $ Ann_Mean_Temp  : num  83.3 88.5 86.3 85.4 75.3 ...
+ $ Mean_Drnl_Rng  : num  80.6 83.8 82.1 83.3 78.1 ...
+ $ Isotherm       : num  31.4 32.2 31.8 32.3 31.2 ...
+ $ Temp_Seas      : num  6691 6704 6696 6652 6545 ...
+ $ Max_T          : num  227 235 231 230 215 227 228 231 228 227 ...
+ $ Min_T          : num  -30 -25 -27 -28 -35 -29 -27 -26 -29 -28 ...
+ $ T_Ann_Rng      : num  257 260 258 258 250 256 255 257 257 255 ...
+ $ Mean_T_Wet     : num  149.33 155 152.67 15.33 7.17 ...
+ $ Mean_T_Dry     : num  40.2 45.7 43.5 42.3 31.5 ...
+ $ Mean_T_Warm    : num  166 171 169 168 156 ...
+ $ Mean_T_Cold    : num  0.667 5.833 3.667 3.333 -4.833 ...
+ $ Ann_Prec       : num  820 703 743 770 850 738 744 686 745 707 ...
+ $ Prec_Wet       : num  78 70 72 76 85 73 73 69 74 71 ...
+ $ Prec_Dry       : num  56 47 51 52 55 47 47 44 47 46 ...
+ $ Prec_Seas      : num  10.3 12.9 11.6 12 12.7 ...
+ $ Prec_Wet.1     : num  223 202 209 211 234 207 208 195 206 199 ...
+ $ Prec_Dry.1     : num  183 153 164 174 185 159 162 147 161 155 ...
+ $ Prec_Warm      : num  217 195 202 198 223 201 203 191 201 196 ...
+ $ Prec_Cold      : num  202 161 175 196 215 183 186 168 189 173 ...
+ $ WAnn_Mean_Temp : num  86 91.3 89 86.7 76.3 ...
+ $ WMean_Drnl_Rng : num  80.5 82.9 82.1 87.2 82.8 ...
+ $ WIsotherm      : num  28.8 29.4 29.2 30 29 ...
+ $ WTemp_Seas     : num  6841 6873 6850 6866 6749 ...
+ $ WMax_T         : num  241 248 245 244 229 241 243 246 242 241 ...
+ $ WMin_T         : num  -39 -34 -36 -47 -56 -53 -46 -46 -52 -49 ...
+ $ WT_Ann_Rng     : num  280 282 281 291 285 294 289 292 294 290 ...
+ $ WMean_T_Wet    : num  174 180 178 175 163 ...
+ $ WMean_T_Dry    : num  94 98.5 96.7 95 85.7 ...
+ $ WMean_T_Warm   : num  174 180 178 175 163 ...
+ $ WMean_T_Cold   : num  7.5 12.333 10.333 7.5 -0.833 ...
+ $ WAnn_Prec      : num  677 589 641 696 753 656 666 613 659 627 ...
+ $ WPrec_Wet      : num  110 99 104 99 106 95 98 92 94 94 ...
+ $ WPrec_Dry      : num  18 16 17 18 20 17 19 16 17 16 ...
+ $ WPrec_Seas     : num  49 52.6 50.1 41.2 38.9 ...
+ $ WPrec_Wet.1    : num  275 249 264 265 290 254 252 235 250 238 ...
+ $ WPrec_Dry.1    : num  101 86 93 104 120 98 101 90 98 91 ...
+ $ WPrec_Warm     : num  275 249 264 265 290 254 252 235 250 238 ...
+ $ WPrec_Cold     : num  139 109 129 165 173 155 165 148 162 154 ...
+ $ n_dlm_types    : int  3 6 7 4 6 7 8 6 5 5 ...
+ $ p_ar           : num  0.3062 0.6956 0.1183 0.0285 0.3749 ...
+ $ p_gr           : num  0.192 0.105 0.714 0.504 0.123 ...
+ $ p_fo           : num  0.4723 NA 0.0299 0.3421 0.502 ...
+ $ area           : num  44.57 875.38 875.38 7.81 67.32 ...
+ $ cai            : num  84.6 74.7 74.7 68 76.8 ...
+ $ enn            : num  75 50 50 100 202 ...
+ $ frac           : num  1.04 1.3 1.3 1.08 1.14 ...
+ $ LUI            : num  2.79 1.92 2.63 2.11 2.41 1.57 1.13 1.13 0.68 1.58 ...
+ $ G_STD          : num  0.84 0 0 0.57 0.82 0.54 1.28 1.28 0.46 0 ...
+ $ M_STD          : num  1.92 0.96 1.92 1.92 1.92 1.92 0 0 0 0.96 ...
+ $ F_STD          : num  5 2.72 5 1.96 3.05 0 0 0 0 1.52 ...</code></pre>
+</div>
+</div>
+<div class="cell quarto-layout-panel">
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</div>
+<p>Using all variables that showed a significant correlation with the shannon index in a glm:</p>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+glm(formula = shannon ~ HAI_dem25 + Ann_Mean_Temp + Max_T + Min_T + 
+    Mean_T_Dry + Mean_T_Warm + Mean_T_Cold + Prec_Wet + WAnn_Mean_Temp + 
+    WMax_T + WMean_T_Wet + WMean_T_Dry + WMean_T_Cold + WAnn_Prec + 
+    LUI + M_STD, data = datdf)
+
+Coefficients:
+                Estimate Std. Error t value Pr(&gt;|t|)  
+(Intercept)    42.923435  38.858430   1.105   0.2773  
+HAI_dem25       0.002086   0.004653   0.448   0.6569  
+Ann_Mean_Temp   0.817842   1.173321   0.697   0.4907  
+Max_T          -0.044295   0.269692  -0.164   0.8705  
+Min_T          -0.724847   0.345691  -2.097   0.0438 *
+Mean_T_Dry     -0.048073   0.020226  -2.377   0.0234 *
+Mean_T_Warm    -0.227140   0.731923  -0.310   0.7583  
+Mean_T_Cold     0.136329   0.634178   0.215   0.8311  
+Prec_Wet        0.036394   0.053396   0.682   0.5003  
+WAnn_Mean_Temp  1.449306   2.074700   0.699   0.4897  
+WMax_T         -0.121135   0.195600  -0.619   0.5400  
+WMean_T_Wet    -0.951261   1.062035  -0.896   0.3769  
+WMean_T_Dry    -0.091626   0.651293  -0.141   0.8890  
+WMean_T_Cold   -0.174289   0.668061  -0.261   0.7958  
+WAnn_Prec      -0.005264   0.005421  -0.971   0.3386  
+LUI            -0.211279   0.134567  -1.570   0.1259  
+M_STD          -0.091304   0.111549  -0.819   0.4189  
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+(Dispersion parameter for gaussian family taken to be 0.2036986)
+
+    Null deviance: 12.6309  on 49  degrees of freedom
+Residual deviance:  6.7221  on 33  degrees of freedom
+AIC: 77.562
+
+Number of Fisher Scoring iterations: 2</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+    2.135    18.610   329.405  1588.422  1199.446 12202.605 </code></pre>
+</div>
+</div>
+<p>VIF values are super high (summary statistic at the bottom), much multicollinearity as expected, and most variables are not even significant, thus: PCA.</p>
+<section id="pca-with-significant-variables-only" class="level2">
+<h2 class="anchored" data-anchor-id="pca-with-significant-variables-only">PCA with significant variables only:</h2>
+<p>In the version with only variables that are significant with biodiversity: 97% of data variance is represented by first component, 1.5% by second component and the rest is negligible. Cos2 shows how much variables are represented in PC:</p>
+<div class="cell quarto-layout-panel">
+
+</div>
+<p>Visually checking variable distributions</p>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-9-2.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-9-3.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      eigenvalue variance.percent cumulative.variance.percent
+Dim.1 " 13.31"   " 78.29"         " 78.29"                   
+Dim.2 "  1.58"   "  9.30"         " 87.59"                   
+Dim.3 "  0.70"   "  4.13"         " 91.72"                   
+Dim.4 "  0.61"   "  3.58"         " 95.30"                   
+Dim.5 "  0.35"   "  2.08"         " 97.38"                   
+Dim.6 "  0.17"   "  0.99"         " 98.37"                   
+Dim.7 "  0.14"   "  0.84"         " 99.22"                   
+Dim.8 "  0.07"   "  0.38"         " 99.60"                   </code></pre>
+</div>
+</div>
+<p>Screeplot and Eigenvalue interpretation interpretation: using first 2 dimensions giving 87.59% of cumulative variance percent. 3 dimensions would have been a possible interpretation, too, adding 4% of variance percent, but this third dimension is not related to shannon, so it’s excluded here.</p>
+<p>Variable contribution for the first dimensions:</p>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-10-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Variable contribution to Dimension 1 and 2:</p>
+<div class="cell quarto-layout-panel">
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-11-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</div>
+<p>Variable and Explo Plot contribution to selected dimensions 1 and 2 (mean in dashed red line (?))</p>
+<div class="cell quarto-layout-panel">
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-12-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</div>
+<p>Correlation first 2 PCA dimensions and correlation with shannon index:</p>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<section id="non-linearity-of-variables" class="level3">
+<h3 class="anchored" data-anchor-id="non-linearity-of-variables">Non-linearity of variables</h3>
+<p>PCA may not perform well if variables are non-normally distributed. Out of the variables that are significantly related with shannon, this is the case for the following:</p>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "shannon"        "HAI_dem25"      "Ann_Mean_Temp"  "Max_T"         
+ [5] "Min_T"          "Mean_T_Dry"     "Mean_T_Warm"    "Mean_T_Cold"   
+ [9] "Prec_Wet"       "WAnn_Mean_Temp" "WMax_T"         "WMean_T_Wet"   
+[13] "WMean_T_Dry"    "WMean_T_Warm"   "WMean_T_Cold"   "WAnn_Prec"     
+[17] "LUI"            "M_STD"         </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>              var is_normal
+1         shannon      TRUE
+2       HAI_dem25     FALSE
+3   Ann_Mean_Temp     FALSE
+4           Max_T     FALSE
+5           Min_T     FALSE
+6      Mean_T_Dry     FALSE
+7     Mean_T_Warm     FALSE
+8     Mean_T_Cold     FALSE
+9        Prec_Wet     FALSE
+10 WAnn_Mean_Temp     FALSE
+11         WMax_T     FALSE
+12    WMean_T_Wet      TRUE
+13    WMean_T_Dry     FALSE
+14   WMean_T_Warm      TRUE
+15   WMean_T_Cold      TRUE
+16      WAnn_Prec     FALSE
+17            LUI     FALSE
+18          M_STD     FALSE</code></pre>
+</div>
+</div>
+<p>Thus, trying kPCA (Kernel PCA), results were not useful <a href="https://medium.com/mlearning-ai/what-is-kernel-pca-using-r-python-4864c2471e62">approach</a>.</p>
+<p>Anyway, the problem doesn’t seem to be that</p>
+<p>https://www.cs.princeton.edu/picasso/mats/PCA-Tutorial-Intuition_jp.pdf</p>
+</section>
+</section>
+<section id="pca-with-all-variables" class="level2">
+<h2 class="anchored" data-anchor-id="pca-with-all-variables">PCA with all variables:</h2>
+<p>Variables percent arable land and percent forest contain missing values, they are left out here.</p>
+<div class="cell quarto-layout-panel">
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-15-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="cell-output cell-output-stdout quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<pre><code>      eigenvalue variance.percent cumulative.variance.percent
+Dim.1 " 26.58"   " 50.15"         " 50.15"                   
+Dim.2 "  5.86"   " 11.05"         " 61.20"                   
+Dim.3 "  3.50"   "  6.60"         " 67.80"                   
+Dim.4 "  2.97"   "  5.60"         " 73.40"                   
+Dim.5 "  2.51"   "  4.74"         " 78.15"                   
+Dim.6 "  2.10"   "  3.95"         " 82.10"                   
+Dim.7 "  1.53"   "  2.89"         " 84.99"                   
+Dim.8 "  1.42"   "  2.67"         " 87.66"                   </code></pre>
+</div>
+</div>
+</div>
+<p>Screeplot and Eigenvalue interpretation interpretation: using first 5 dimensions for 78.15% cumulative variance percent.</p>
+<p>Variable contribution for the first dimensions:</p>
+<div class="cell">
+
+</div>
+<div class="cell">
+
+</div>
+<div class="cell">
+
+</div>
+<div class="cell">
+
+</div>
+<p>This is not an optimal variable reduction, less bound variance and more dimensions - sticking with the PCA from the significant variables:</p>
+</section>
+<section id="models-using-pca-variables" class="level2">
+<h2 class="anchored" data-anchor-id="models-using-pca-variables">Models using PCA variables</h2>
+<section id="linear-model" class="level4">
+<h4 class="anchored" data-anchor-id="linear-model">Linear Model</h4>
+<div class="cell quarto-layout-panel">
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-20-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="cell-output cell-output-stdout quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<pre><code>
+Call:
+lm(formula = shannon ~ Dim.1 + Dim.2, data = dat_pc)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-1.3235 -0.2355  0.0937  0.2861  0.7756 
+
+Coefficients:
+            Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  2.23760    0.06349  35.242  &lt; 2e-16 ***
+Dim.1       -0.04675    0.01740  -2.686  0.00995 ** 
+Dim.2       -0.14678    0.05050  -2.906  0.00556 ** 
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.449 on 47 degrees of freedom
+Multiple R-squared:   0.25, Adjusted R-squared:  0.2181 
+F-statistic: 7.832 on 2 and 47 DF,  p-value: 0.00116</code></pre>
+</div>
+</div>
+</div>
+<p>22% of variance in Shannon index is explained by principal components 1 (temperature, elevation and precipitation in this order of relevance) and 2 (mowing and LUI).</p>
+</section>
+<section id="random-forest-nndm" class="level4">
+<h4 class="anchored" data-anchor-id="random-forest-nndm">Random Forest (NNDM)</h4>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 74172.56</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>nndm object
+Total number of points: 50
+Mean number of training points: 49
+Minimum number of training points: 49</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-21-2.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Random Forest 
+
+50 samples
+ 2 predictor
+
+No pre-processing
+Resampling: Cross-Validated (10 fold) 
+Summary of sample sizes: 49, 49, 49, 49, 49, 49, ... 
+Resampling results:
+
+  RMSE       Rsquared  MAE      
+  0.3947588  NaN       0.3947588
+
+Tuning parameter 'mtry' was held constant at a value of 2
+Tuning
+ parameter 'splitrule' was held constant at a value of variance
+
+Tuning parameter 'min.node.size' was held constant at a value of 5</code></pre>
+</div>
+</div>
+<p>Range of observed data is 2.5, RMSE is 0.5…</p>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="modelling_test_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = model_predobs$obs ~ model_predobs$pred)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-1.57907 -0.22034  0.04111  0.35288  0.78959 
+
+Coefficients:
+                   Estimate Std. Error t value Pr(&gt;|t|)   
+(Intercept)           1.454      0.519   2.801  0.00731 **
+model_predobs$pred    0.349      0.229   1.524  0.13408   
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.501 on 48 degrees of freedom
+Multiple R-squared:  0.04615,   Adjusted R-squared:  0.02628 
+F-statistic: 2.323 on 1 and 48 DF,  p-value: 0.1341</code></pre>
+</div>
+</div>
+<p>2.6% variance of observed explained with predicted within NNDM model.</p>
+<div class="cell">
+
+</div>
+<p>lm with PCA dimensions 1 and 2: 22% explained variance, using RF with 50 points.</p>
+<p>$predicted Vorhersagen aus der Kreuzvalidierung ggü. observed</p>
+<p>$results predicted and observed</p>
+<p>oder saveResults auf final</p>
+<p>finales modell basiert auf allen DAtenpunkten in der Kreuzvalidierung</p>
+<p>welches Modell nutzt man dann für die Prediction (100 decisiontrees, Mittelwert)</p>
+<section id="look-at-ranger-model" class="level5">
+<h5 class="anchored" data-anchor-id="look-at-ranger-model">Look at ranger model:</h5>
+<div class="cell">
+
+</div>
+</section>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

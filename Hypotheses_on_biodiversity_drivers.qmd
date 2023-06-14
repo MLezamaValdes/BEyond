@@ -1,5 +1,5 @@
 ---
-title: "Landscape Indices"
+title: "Exploratory analysis on hypotheses concerning biodiversity drivers"
 author: "Maite"
 format: html
 editor: visual
@@ -185,11 +185,6 @@ Land use intensity
 -   fertilization
 -   inter-annual variation in LUI
 
-soil properties
-
--   pH
--   ...?
-
 terrain
 
 -   elevation
@@ -207,6 +202,13 @@ satellite data
 -   räumlich und zeitliche spektrale Diversität
 -   Produktivität via NDVI
 -   ...?
+
+soil properties
+
+-   pH
+-   ...?
+
+Interesting [page](https://www.bgr.bund.de/EN/Themen/Boden/Produkte/produktkatalog_node_en.html;jsessionid=BAD9B7D166B97D4E4D6EB7DE291EE444.internet971) for germany-wide soil data
 
 ```{r}
 #| results: 'hide'
@@ -939,6 +941,18 @@ d_geo_tcw_cor <- d_geo_tcw |>
 buek200_lscs <- st_read(here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"))
 st_agr(buek200_lscs) = "constant"
 
+
+# extract Bodensystematische Einheiten
+bsyse <- trimws(sub("\\:.*", "", sub("\\,.*", "", substr(buek200_lscs$Legende, 4, 80))))
+
+buek200_lscs$BSysE <- bsyse
+mapview(buek200_lscs, zcol="BSysE")
+
+table(buek200_lscs$BSysE)
+unique(buek200_lscs$BSysE)
+
+# st_write(buek200_lscs, here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"), append=FALSE)
+
 buekex <- st_intersection(buek200_lscs, d_geo)
 
 
@@ -988,18 +1002,20 @@ dl <- d_lui |>
 
 alldat <- merge(d_geo_abiot_nbh_p, dl, by="ep")
 
+# st_write(alldat, paste0(here("../data/prestudy_data.gpkg")))
 
 ```
 
-## all variables together (no BK50 data yet)
+## all variables together (no BK50 and satellite data yet)
 
 ```{r}
 #| fig.height: 9
-
+alldat <- st_read(paste0(here("../data/prestudy_data.gpkg")))
 alldatdf <- data.frame(alldat)
 alldatdf <- alldatdf[2:62]
 
-cm <- psych::corr.test(alldatdf[,c(4,1,2,3,5:ncol(alldatdf)-1)], use="pairwise.complete.obs")
+cm <- psych::corr.test(alldatdf[,c(4,1,2,3,5:ncol(alldatdf)-1)], 
+                       use="pairwise.complete.obs")
 corrplot::corrplot(cm$r, p.mat= cm$p,
                    method="number", 
                    type="lower", 
@@ -1010,11 +1026,14 @@ corrplot::corrplot(cm$r, p.mat= cm$p,
                    pch.cex = .3)
 
 
+
 ```
 
 Significant variables only to get a better look at the numbers:
 
 ```{r}
+#| fig.height: 9
+
 sigvars <- which(cm$p[,1] < 0.05)
 
 sigdat <- alldatdf[names(alldatdf) %in% names(sigvars)]
@@ -1030,87 +1049,6 @@ corrplot::corrplot(cm$r, p.mat= cm$p,
                    number.cex=.6, 
                    pch.cex = .6)
 ```
-
-## Multivariate exploration // modeling
-
-```{r}
-m <- glm(formula= shannon ~ HAI_dem25+Ann_Mean_Temp+Max_T+Min_T+Mean_T_Dry+Mean_T_Warm+Mean_T_Cold+Prec_Wet+WAnn_Mean_Temp+WMax_T+WMean_T_Wet+WMean_T_Dry+WMean_T_Cold+WAnn_Prec+LUI+M_STD, data=dat)
-
-summary(m)
-car::vif(m)
-
-```
-
-VIF values are super high, much multicollinearity as expected, and most variables are not even significant, thus: PCA
-
-```{r}
-library(factoextra)
-
-colSums(is.na(dat))
-
-# scale and perform PCA
-dn <- scale(dat[,2:ncol(dat)])
-dat_norm <- cbind(dat["shannon"], dn)
-corr_matrix <- cor(dat_norm[,2:ncol(dat_norm)])
-data.pca <- princomp(corr_matrix)
-
-pc <- prcomp(dat_norm[,-1],
-             center = TRUE,
-            scale. = FALSE,
-            retx=TRUE)
-attributes(pc)
-
-#summary(data.pca)
-fviz_eig(pc, addlabels = TRUE)
-fviz_eig(data.pca, addlabels = TRUE)
-
-fviz_cos2(data.pca, choice = "var", axes = 1)
-fviz_cos2(data.pca, choice = "var", axes = 2)
-data.pca$loadings[, 1:2]
-plot(data.pca$scores[,1:2])
-
-fviz_cos2(pc, choice = "var", axes = 1)
-fviz_cos2(pc, choice = "var", axes = 2)
-pc$x[, 1:2]
-```
-
-97% of data variance is represented by first component, 1.5% by second component and the rest is negligible.
-Cos2 shows how much variables are represented in PC, in this case the first one:
-
-
-```{r}
-fviz_pca_var(data.pca, col.var = "cos2",
-            gradient.cols = c("red", "yellow", "darkgreen"),
-            repel = TRUE)
-
-```
-
-```{r}
-#| layout-ncol: 2
-dat_pc <- cbind(dat, pc$x[, 1:2])
-
-ggplot(dat_pc, aes(PC2, shannon))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  theme_minimal()+
-  ggtitle("PC2 (LUI and mowing) x biodiversity (shannon)")
-
-ggplot(dat_pc, aes(PC1, shannon))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  theme_minimal()+
-  ggtitle("PC1 (terrain and climate variables) x biodiversity (shannon)")
-
-
-
-m <- glm(formula= shannon ~ PC1 + PC2, data=dat_pc, 
-         family = gaussian)
-
-summary(m)
-# car::vif(m)
-
-```
-
 
 ## Sources:
 

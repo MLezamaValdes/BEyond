@@ -1,0 +1,501 @@
+---
+title: "Multivariate exploration // modeling"
+author: "Maite"
+format: html
+editor: visual
+theme: flatly
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
+```
+
+```{r}
+library(sf)
+library(caret)
+# devtools::install_github("carlesmila/NNDM")
+library(NNDM)
+library(factoextra)
+library(FactoMineR)
+library(here)
+library(dplyr)
+library(corrplot)
+library(ranger)
+library(randomForest)
+library(gstat)
+library(CAST)
+
+```
+
+```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
+
+dat <- st_read(paste0(here("../data/prestudy_data.gpkg")))
+
+# drop geometry
+datdf <- data.frame(dat)|> 
+  select(1:61) |>
+  select(c(1,5,2,3,4,6, 8:61)) # just sorting columns 
+datdf$NRKART <- as.factor(datdf$NRKART)
+```
+
+\[Worldclim data format\](https://worldclim.org/data/v1.4/formats.html#:\~:text=The%20unit%20used%20for%20the%20precipitation%20data%20is%20mm%20(millimeter).: temperature data are in °C \* 10
+
+```{r}
+#| eval: false
+datdf[c("Ann_Mean_Temp", "Mean_Drnl_Rng", "Max_T", "Min_T", "T_Ann_Rng", "Mean_T_Wet", "Mean_T_Dry", )]
+```
+
+Variables that are available:
+
+```{r}
+str(datdf)
+```
+
+```{r}
+#| layout-ncol: 2 
+
+ggplot(datdf, aes(y=shannon))+
+  geom_boxplot()+
+  ggtitle("Shannon diversity 50 Plots HEG")+
+  theme_minimal()
+```
+
+Using all variables that showed a significant correlation with the shannon index in a glm:
+
+```{r}
+# those are the variables that had a significant relation with biodiversity (shannon)
+m <- glm(formula= shannon ~ HAI_dem25+Ann_Mean_Temp+Max_T+Min_T+Mean_T_Dry+Mean_T_Warm+Mean_T_Cold+Prec_Wet+WAnn_Mean_Temp+WMax_T+WMean_T_Wet+WMean_T_Dry+WMean_T_Cold+WAnn_Prec+LUI+M_STD, data=datdf)
+
+summary(m)
+
+summary(car::vif(m))
+
+```
+
+VIF values are super high (summary statistic at the bottom), much multicollinearity as expected, and most variables are not even significant, thus: PCA.
+
+## PCA with significant variables only:
+
+In the version with only variables that are significant with biodiversity: 97% of data variance is represented by first component, 1.5% by second component and the rest is negligible. Cos2 shows how much variables are represented in PC:
+
+```{r}
+#| layout-ncol: 2
+cm <- psych::corr.test(datdf[,c(2, 6:60)], 
+                       use="pairwise.complete.obs")
+sigvars <- which(cm$p[,1] < 0.05)
+sigdat <- datdf[names(datdf) %in% names(sigvars)]
+
+rownames(sigdat) <- datdf$ep
+```
+
+Visually checking variable distributions
+
+```{r}
+#| fig.height: 9
+pl <- lapply(seq(ncol(sigdat)), function(i){
+  ggplot(data = sigdat, aes(x = sigdat[,i])) + 
+    geom_histogram(bins=15)+
+  ggtitle(names(sigdat[i]))+
+  xlab(names(sigdat[i]))
+})
+
+library(gridExtra)
+
+do.call("grid.arrange", c(pl, ncol = 3))   
+
+```
+
+```{r}
+# 3 different methods - princomp(), prcomp(), PCA
+# PCA and prcomp() results are the same, ignoring princomp() and choosing PCA() 
+
+# pc <- prcomp(dat_norm[,-1],
+#              center = TRUE,
+#             scale. = FALSE,
+#             retx=TRUE)
+
+PCA_sig <- PCA(sigdat[,-1], 
+           scale.unit = TRUE, 
+           ncp = 5, 
+           graph = F)
+fviz_pca_var(PCA_sig, col.var = "contrib",
+            gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+            repel = T)
+
+fviz_pca_ind(PCA_sig, col.ind="contrib", 
+   gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+   ggtheme=theme_minimal(), geom = "text")
+
+fviz_eig(PCA_sig, addlabels = TRUE)
+format(round(get_eigenvalue(PCA_sig), digits=2), scientific=F)[1:8,]
+
+```
+
+Screeplot and Eigenvalue interpretation interpretation: using first 2 dimensions giving 87.59% of cumulative variance percent. 3 dimensions would have been a possible interpretation, too, adding 4% of variance percent, but this third dimension is not related to shannon, so it's excluded here.
+
+Variable contribution for the first dimensions:
+
+```{r}
+#| fig.height: 9
+
+var <- get_pca_var(PCA_sig)
+vc <- var$cos2
+corrplot(vc, is.corr=FALSE, tl.col = "black")
+
+# format(round(var$contrib, digits=2), scientific=F)
+
+set.seed(123)
+cl <- kmeans(var$coord, centers = 3, nstart = 25, iter.max=10)
+grp <- as.factor(cl$cluster)
+
+# Color variables by groups
+fviz_pca_var(PCA_sig, col.var = grp, 
+             palette = c("#0073C2FF", "#EFC000FF", "#868686FF"),
+             legend.title = "Cluster")
+```
+
+Variable contribution to Dimension 1 and 2:
+
+```{r}
+#| layout-ncol: 2
+
+fviz_cos2(PCA_sig, choice = "var", axes = 1)
+fviz_cos2(PCA_sig, choice = "var", axes = 2)
+```
+
+Variable and Explo Plot contribution to selected dimensions 1 and 2 (mean in dashed red line (?))
+
+```{r}
+#| layout-ncol: 2
+fviz_contrib(PCA_sig, choice = "var", axes = 1:2)
+fviz_contrib(PCA_sig, choice = "ind", axes = 1:2)
+```
+
+Correlation first 2 PCA dimensions and correlation with shannon index:
+
+```{r}
+dat_pc <- cbind(dat, PCA_sig$ind$coord[, 1:2])
+
+cortab <- dat_pc |>
+  data.frame() |>
+  select(shannon, Dim.1, Dim.2)
+
+corrplot(cor(cortab),
+        method = "number", 
+        type="lower", 
+        tl.col = "black")
+
+```
+
+### Non-linearity of variables
+
+PCA may not perform well if variables are non-normally distributed. Out of the variables that are significantly related with shannon, this is the case for the following:
+
+```{r}
+# testing for normal distribution with shapiro-wilk test
+# p value needs to be >0.05 for normal distribution
+
+names(sigdat)
+isnormal <- sapply(seq(ncol(sigdat)), function(i){
+  s <- shapiro.test(sigdat[,i])
+  s$p.value > 0.05
+})
+
+
+data.frame(var=names(sigdat), is_normal =isnormal)
+
+```
+
+Thus, trying kPCA (Kernel PCA), results were not useful [approach](https://medium.com/mlearning-ai/what-is-kernel-pca-using-r-python-4864c2471e62).
+
+Anyway, the problem doesn't seem to be that this produces misleading results, but that not much of the variance may be gathered - see [page 7 here.](https://www.cs.princeton.edu/picasso/mats/PCA-Tutorial-Intuition_jp.pdf)
+
+## PCA with all variables:
+
+Variables percent arable land and percent forest contain missing values, they are left out here.
+
+```{r}
+#| layout-ncol: 2
+
+# which(colSums(is.na(datdf)) != 0)
+
+drop_columns <- c('p_ar','p_fo')
+
+dn <- datdf |> 
+  select(-one_of(drop_columns)) |> 
+  select(6:58) |>
+  scale() 
+  
+
+dat_norm <- cbind(datdf["shannon"], dn)
+rownames(dat_norm) <- datdf$ep
+
+
+PCA <- PCA(dat_norm[,-1], 
+           scale.unit = TRUE, 
+           ncp = 5, 
+           graph = F)
+
+fviz_pca_var(PCA, col.var = "contrib",
+            gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+            repel = T)
+
+# fviz_pca_ind(PCA, col.ind="contrib", 
+#    gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+#    ggtheme=theme_minimal(), geom = "text")
+
+# summary(PCA)
+fviz_eig(PCA, addlabels = TRUE)
+format(round(get_eigenvalue(PCA), digits=2), scientific=F)[1:8,]
+
+```
+
+Screeplot and Eigenvalue interpretation interpretation: using first 5 dimensions for 78.15% cumulative variance percent.
+
+Variable contribution for the first dimensions:
+
+```{r}
+#| eval: false
+#| fig.height: 9
+
+var <- get_pca_var(PCA)
+vc <- var$cos2
+corrplot(vc, is.corr=FALSE, tl.col = "black")
+
+# format(round(var$contrib, digits=2), scientific=F)
+```
+
+```{r}
+#| eval: false
+
+set.seed(123)
+cl <- kmeans(var$coord, nstart = 25, iter.max=10, centers=6)
+grp <- as.factor(cl$cluster)
+
+# Color variables by groups
+fviz_pca_var(PCA, col.var = grp, 
+             palette = "dark2",
+             legend.title = "Cluster")
+```
+
+```{r}
+#| eval: false
+
+#| layout-ncol: 2
+fviz_cos2(PCA, choice = "var", axes = 1)
+fviz_cos2(PCA, choice = "var", axes = 2)
+fviz_cos2(PCA, choice = "var", axes = 3)
+fviz_cos2(PCA, choice = "var", axes = 4)
+fviz_cos2(PCA, choice = "var", axes = 5)
+```
+
+```{r}
+#| eval: false
+
+#| layout-ncol: 2
+
+fviz_contrib(PCA, choice = "ind", axes = 1:5)
+fviz_contrib(PCA, choice = "var", axes = 1:5)
+
+```
+
+This is not an optimal variable reduction, less bound variance and more dimensions - sticking with the PCA from the significant variables:
+
+## Models using PCA variables
+
+#### Linear Model
+
+```{r}
+#| layout-ncol: 2
+
+ggplot(dat_pc, aes(Dim.1, shannon))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  theme_minimal()+
+  ggtitle("PC2 (LUI and mowing) x biodiversity (shannon)")
+
+ggplot(dat_pc, aes(Dim.2, shannon))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  theme_minimal()+
+  ggtitle("PC1 (terrain and climate variables) x biodiversity (shannon)")
+
+
+# m <- glm(formula= shannon ~ Dim.1 + Dim.2, data=dat_pc, 
+#          family = gaussian)
+m <- lm(formula= shannon ~ Dim.1 + Dim.2, data=dat_pc)
+summary(m)
+
+```
+
+22% of variance in Shannon index is explained by principal components 1 (temperature, elevation and precipitation in this order of relevance) and 2 (mowing and LUI).
+
+#### Random Forest (NNDM)
+
+```{r}
+seed <- 100
+
+dat_pc <- cbind(dat, PCA_sig$ind$coord[, 1:2])
+
+# just to check whether R² is shown 
+# dat_pc_l <- rbind(dat_pc, dat_pc, dat_pc, dat_pc)
+# dat_pc <- dat_pc_l
+
+predictors <- dat_pc |>
+  data.frame() |>
+  select(6:63)
+
+# pv <- ncol(predictors)
+pv <- 2
+tuneGrid <-  expand.grid(mtry = c(seq(2,pv,1)))
+trainControl_LOO <- trainControl(method = "LOOCV", savePredictions = T)
+paramGrid <-  data.frame(mtry = 2, min.node.size = 5, splitrule = "variance")
+
+mod_LOO <- train(predictors[c("Dim.1", "Dim.2")],
+                 dat_pc$shannon,
+                 method = "ranger",
+                 trControl = trainControl_LOO,
+                 tuneGrid = paramGrid, 
+                 seed=1)
+
+# Estimate variogram on the residual and return range
+newdat <- dat_pc |>
+          data.frame()|>
+          select(c("Dim.1", "Dim.2"))
+
+predictors$res <- dat_pc$shannon - predict(mod_LOO, newdata=newdat)
+
+empvar <- variogram(predictors$res~1, data=dat_pc)
+fitvar <- fit.variogram(empvar, vgm(model="Sph", nugget = T))
+plot(empvar, fitvar, cutoff=1500, main = "Residual semi-variogram estimation")
+(resrange <- fitvar$range[2])
+
+# Compute NNDM indices
+(NNDM_indices <- nndm(tpoints=dat_pc, 
+                      ppoints=dat_pc, 
+                      resrange, min_train = 0.5))
+plot(NNDM_indices)
+
+
+trainControl_NNDM <- trainControl(method = "cv", 
+                                  savePredictions = T,
+                                  index=NNDM_indices$indx_train,
+                                  indexOut=NNDM_indices$indx_test)
+
+paramGrid <-  data.frame(mtry = 2, 
+                         min.node.size = 5, 
+                         splitrule = "variance")
+
+
+model <- train(predictors[c("Dim.1", "Dim.2")],
+               dat_pc$shannon,
+               method = "ranger",
+               tuneGrid = paramGrid,
+               trControl = trainControl_NNDM) 
+
+model
+
+
+dat_pc$pred <- predict(model, newdata=newdat)
+
+RMSE=round(with(model$pred, sqrt(mean((obs-pred)^2))), digits=2)
+
+obs_range <- range(model$pred$obs)[2]-range(model$pred$obs)[1]
+```
+
+Range of observed data is 2.5, RMSE is 0.5...
+
+```{r}
+model_predobs <- data.frame(pred=model$pred$pred, obs=model$pred$obs)
+
+
+ggplot(model_predobs, aes(obs, pred))+
+  geom_point()+
+  coord_cartesian(xlim =c(0,3.5), ylim = c(0, 3.5))+
+  theme_minimal()+
+  geom_smooth(method="lm")+
+  xlab("observed shannon")+ylab("predicted shannon")+
+  geom_abline(slope=1, intercept=0)+
+  ggtitle("results RF NNDM n=50", 
+          subtitle = paste0("RMSE=", RMSE, ", data range = ", obs_range))
+
+exp <- lm(model_predobs$obs ~ model_predobs$pred)
+summary(exp)
+```
+
+2.6% variance of observed explained with predicted within NNDM model.
+
+```{r}
+#| eval: false
+
+# run ffs model
+
+predictors <- predictors[!names(predictors) %in% drop_columns]
+predictors <- predictors[names(predictors)!="res"]
+
+
+library(parallel)
+library(doParallel)
+cores <- detectCores()
+cl <- makeCluster(cores-3)
+registerDoParallel(cl)
+  
+ffsmodel <- ffs(predictors,
+               dat_pc$shannon,
+               method = "ranger",
+               tuneGrid = paramGrid,
+               trControl = trainControl_NNDM) 
+
+save(ffsmodel,file=here("../temp/ffsmodel_test.RData"))
+
+stopCluster(cl)
+rm(cl)
+```
+
+```{r}
+load(here("../temp/ffsmodel_test.RData"))
+ffsmodel$finalModel$r.squared
+
+(predictornames <- ffsmodel$selectedvars)
+
+predictors <- dat_pc[,which(names(dat_pc)%in%predictornames)]
+
+psych::corr.test(data.frame(predictors)[,1:5])
+
+model_final <- train(predictors, 
+                     dat_pc$shannon,
+               method = "ranger",
+               tuneGrid = paramGrid,
+               trControl = trainControl_NNDM) 
+
+model_final
+```
+
+lm with PCA dimensions 1 and 2: 22% explained variance, using RF with 50 points.
+
+\$predicted Vorhersagen aus der Kreuzvalidierung ggü. observed
+
+\$results predicted and observed
+
+oder saveResults auf final
+
+finales modell basiert auf allen DAtenpunkten in der Kreuzvalidierung
+
+welches Modell nutzt man dann für die Prediction (100 decisiontrees, Mittelwert)
+
+##### Look at ranger model:
+
+```{r}
+#| eval: false
+
+# terminal nodes, mit welchen Predictors, wie weit sind die Trainingsdatenpunkte weg räumlich, die das Pixel vorhersagen
+
+rf <- ranger(Species ~ ., data = iris)
+treeInfo(rf, 1)
+
+treeInfo(model, tree = 1)
+
+
+```
