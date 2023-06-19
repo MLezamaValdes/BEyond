@@ -1,0 +1,209 @@
+---
+title: "Predictors"
+author: "Maite"
+format: html
+editor: visual
+theme: flatly
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
+```
+
+```{r include=FALSE}
+library(here)
+library(sf)
+library(terra)
+library(raster)
+library(mapview)
+library(kableExtra)
+
+
+```
+
+![theoretical model](theoretic_model.png)
+
+```{r}
+#| warning: false
+#| results: hide
+
+dp <- "../data/"
+sap <- here(dp, "/studyarea")
+
+# explo geometries
+geo_exp <- st_read(here(sap, "all3explos.gpkg"))
+plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
+
+# landscapes
+lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
+lsc_ALB <- st_read(here(sap, "landscape_ALB_UTM_extended.shp"))
+lsc_ALB$NAME <- "Swabian Alb"
+lsc_HAI <- st_read(here(sap, "landscape_HAI_UTM.gpkg"))
+lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
+
+d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
+```
+
+# climate and weather
+
+https://www.worldclim.org/data/bioclim.html Bioclim
+
+![](bioclim_codes.png)
+
+```{r, results='hide',fig.keep='all'}
+list.dirs(here(dp, "/Basisdaten"), full.names = FALSE)
+
+bioclim_vars <- c("Ann_Mean_Temp", "Mean_Drnl_Rng", "Isotherm", 
+                  "Temp_Seas", "Max_T", "Min_T", "T_Ann_Rng", 
+                  "Mean_T_Wet", "Mean_T_Dry", "Mean_T_Warm", 
+                  "Mean_T_Cold", "Ann_Prec", "Prec_Wet", "Prec_Dry", "Prec_Seas", "Prec_Wet", "Prec_Dry", "Prec_Warm", "Prec_Cold")
+```
+
+```{r}
+bioclim_ALB_UTM <- rast(here(dp, "/Basisdaten/climate/bioclim_ALB_UTM.tif"))
+bioclim_ALB_weather_UTM <- rast(here(dp, "/Basisdaten/weather/bioclim_ALB_weather_UTM.tif"))
+```
+
+#### weather
+
+```{r, results='hide',fig.keep='all'}
+bioclim_ALB_weather_UTM <- rast(here(dp, "/Basisdaten/weather/ALB_bioclim-2021_UTM.tif"))
+names(bioclim_ALB_weather_UTM) <- bioclim_vars
+
+par(mfrow=c(3,3))
+lapply( seq(nlyr(bioclim_ALB_weather_UTM)), function(i) {
+  plot(bioclim_ALB_weather_UTM[[i]], main=names(bioclim_ALB_weather_UTM[[i]]))
+})
+```
+
+# topography
+
+```{r, results='hide',fig.keep='all'}
+top_ALB_UTM <- rast(here(dp, "/Basisdaten/topography/copernicus/ALB_top_UTM.tif"))
+
+par(mfrow=c(2,2))
+lapply( seq(nlyr(top_ALB_UTM)), function(i) {
+  plot(top_ALB_UTM[[i]], main=names(top_ALB_UTM[[i]]))
+})
+
+```
+
+## extent for visualization of basis and reference data
+
+```{r}
+#| results: hide
+#| fig-keep: all
+
+# plot(d_geo[d_geo$explrtr == "ALB", "shannon"])
+ex_ext_1 <- st_read(paste0(dp, "studyarea/ex_ext.shp"))
+ex_ext_2 <- st_read(paste0(dp, "studyarea/ex_ext_2.shp"))
+
+top_ALB_ex <- crop(top_ALB_UTM, ex_ext_1)
+top_ALB_ex2 <- crop(top_ALB_UTM, ex_ext_2)
+
+# bioclim variables are only 6 values for this extent, so doesn't really make sense
+```
+
+```{r}
+#| layout-ncol: 2
+
+pal <-  mapviewPalette("mapviewSpectralColors")
+
+mapview(d_geo[d_geo$explrtr == "ALB", "shannon"],
+        cex="shannon",
+        legend=TRUE, 
+        layer.name="shannon",
+        col.regions = pal(50),
+        map.types = "Esri.WorldImagery")+
+  mapview(ex_ext_1,
+          layer.name="extent1",
+          alpha.regions=0)+
+  mapview(as(top_ALB_ex, "Raster"), 
+          na.color="#00000000",
+          alpha.regions=1,
+          map.types = "Esri.WorldImagery")
+
+
+mapview(d_geo[d_geo$explrtr == "ALB", "shannon"],
+        cex="shannon",
+        legend=TRUE, 
+        layer.name="shannon",
+        col.regions = pal(50),
+        map.types = "Esri.WorldImagery")+
+  mapview(ex_ext_2,
+          layer.name="extent2",
+          alpha.regions=0)+
+  mapview(as(top_ALB_ex2, "Raster"), 
+          na.color="#00000000",
+          alpha.regions=1,
+          map.types = "Esri.WorldImagery")
+
+
+
+```
+
+# Soil
+
+Bodenübersichtskarte 1:200.000, i.e. 1 cm = 0.2 km for whole Germany [from here](https://geoviewer.bgr.de/mapapps/resources/apps/bodenatlas/index.html?lang=de&tab=boedenDeutschlands)
+
+[BGR](https://produktcenter.bgr.de/terraCatalog/DetailResult.do?fileIdentifier=154997F4-3C14-4A53-B217-8A7C7509E05F)
+
+![](BUEK200.png)
+
+```{r}
+#| warning: false
+#| results: hide
+
+buek200_lscs <- st_read(here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"))
+
+# try converting from latin1 (?) to utf8
+buek200_lscs$Legende = iconv(buek200_lscs$Legende, "latin1", "UTF-8")
+buek200_lscs$Hinweis = iconv(buek200_lscs$Hinweis, "latin1", "UTF-8")
+
+buek200_lscs$NAME[buek200_lscs$NAME=="Schw\xe4bische Alb"] <- "Swabian Alb"
+buek200_lscs$NAME[buek200_lscs$NAME=="Rückland der Mecklenburg-Brandenburgischen Seenplatte"] <- "Rueckl_Mck_Seen"
+buek200_lscs$NAME[buek200_lscs$NAME=="Thüringer Becken und Randplatten"] <- "Thuer_Randpl"
+
+# doesn't render, unfortunately, there's some encoding issue
+# mapview(buek200_lscs, 
+#         zcol="Symbol", legend=FALSE)
+
+```
+
+# Basis-DLM
+
+-   MV: kostenlos für wissenschaftliche Nutzung, bestellt über Formular, interne Nutzung
+
+-   Sachsen-Anhalt: bestellt (50 € Gebühr)
+
+-   BaWü: bestellt, (2800 €)
+
+-   Brandenburg: kostenlos über https://geobroker.geobasis-bb.de/ bestellt und heruntergeladen
+
+-   Thüringen: Download von https://www.geoportal-th.de/de-de/Downloadbereiche/Download-Offene-Geodaten-Th%C3%BCringen/Download-ATKIS-Basis-DLM
+
+-   Bayern: heruntergeladen unter https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=atkis_basis_dlm
+
+-   Hessen (kleines Stück): heruntergeladen von https://gds.hessen.de/INTERSHOP/web/WFS/HLBG-Geodaten-Site/de_DE/-/EUR/ViewDownloadcenter-Start
+
+-   Niedersachsen (kleines Stück): heruntergeladen von https://opengeodata.lgln.niedersachsen.de/#bdlm
+
+to get:
+
+-   Niedersachsen
+
+-   NRW
+
+-   Hessen
+
+-   Rheinland-Pfalz
+
+-   Sachsen
+
+-   Schleswig-Holstein
+
+-   Saarland
+
+-   Bremen
+
+-   not necessary because no sPlotOpen plot within: Berlin & Hamburg

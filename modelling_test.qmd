@@ -493,9 +493,18 @@ welches Modell nutzt man dann für die Prediction (100 decisiontrees, Mittelwert
 # terminal nodes, mit welchen Predictors, wie weit sind die Trainingsdatenpunkte weg räumlich, die das Pixel vorhersagen
 
 rf <- ranger(Species ~ ., data = iris)
-treeInfo(rf, 1)
+treeInfo(rf, 4)
 
-treeInfo(model, tree = 1)
+
+
+
+treeInfo(model, tree = 2)
 
 
 ```
+
+
+```{r}
+
+```
+

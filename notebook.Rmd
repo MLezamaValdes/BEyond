@@ -3,7 +3,6 @@ title: "BEyond Notebook"
 author: "Maite"
 date: "04 06 2023"
 bibliography: lit_dat.bib
-
 output: 
  rmarkdown::html_document:
   #bookdown::html_document2:
@@ -17,8 +16,10 @@ output:
 link-citations: yes
 citation_package: natbib
 toc: yes
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
-
 
 ```{r setup, include=FALSE}
 options(encoding = "UTF-8")
@@ -33,7 +34,8 @@ library(kableExtra)
 
 # Study sites
 
-![](explos_overview.svg)
+![](explos_overview.svg) \## [Explo Research
+Design](https://www.biodiversity-exploratories.de/en/about-us/research-design/)
 
 ```{r, message=F, results='hide',fig.keep='all'}
 dp <- "../data/"
@@ -53,14 +55,14 @@ lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
 
 ```
 
-We assume the landscapes from Naturräume und Großlandschaften Deutschlands https://metadaten.bfn.de/BfNMetaCat23/?lang=de#/datasets/iso/d15f6de3-8711-449a-aa65-678bdc251547 
+We assume the landscapes from Naturräume und Großlandschaften
+Deutschlands
+<https://metadaten.bfn.de/BfNMetaCat23/?lang=de#/datasets/iso/d15f6de3-8711-449a-aa65-678bdc251547>
 
-* Schwäbische Alb, 
-* Thüringer Becken und Randplatten
-** Thüringen
-** Sachsen-Anhalg
-** Hessen (kleiner Winkel)
-* Rückland der Mecklenburg-Brandenburgischen Seenplatte, Mecklenburgische Seenplatte
+-   Schwäbische Alb,
+-   Thüringer Becken und Randplatten
+-   Rückland der Mecklenburg-Brandenburgischen Seenplatte,
+    Mecklenburgische Seenplatte
 
 ```{r}
 # prep grassland display
@@ -68,7 +70,6 @@ gr_ALB <- raster(here(sap, "grassland_ALB_UTM_cat.tif"))
 gr_SEG <- raster(here(sap, "grassland_SEG_UTM_cat.tif"))
 gr_HAI <- raster(here(sap, "grassland_HAI_UTM_cat.tif"))
 ```
-
 
 ```{r}
 
@@ -87,25 +88,27 @@ geomaps <- mapview(geo_exp, color="#b59018", alpha.regions=0, lwd=2)+
 
 
 rmaps+geomaps
-  
 ```
 
+Instead of these copernicus grassland datasets, we'll use the Basis-DLM.
 
+# Response - Test Dataset
 
+In fact, we want dataset *IDs 31434 and 31435*
 
-# Test Dataset
-
-BExis Filters: 
-Taxonomic Term: Plants; Project: Botany (core); Forest: No; Above Ground: Yes; Biotic Data Type: Aggregated diversity
-
+BExis Filters: Taxonomic Term: Plants; Project: Botany (core); Forest:
+No; Above Ground: Yes; Biotic Data Type: Aggregated diversity
 
 Grassland EPs and GPs?
 
-Vegetation Records for Grassland Eps/GPs in 2007, 08, 07-09, 09, 2010, 2011,2012, 2013
+Vegetation Records for Grassland Eps/GPs in 2007, 08, 07-09, 09, 2010,
+2011,2012, 2013
 
+Testing [@explo_16826_v4]
 
-Testing [@explo_16826_v4] 
 ```{r}
+#| warning: false
+#| results: hide
 d <- read.csv(paste0(dp, "16826_4.csv"))
 
 knitr::kable(head(d)) %>%
@@ -115,14 +118,16 @@ knitr::kable(head(d)) %>%
   
 ```
 
-There are 150, i.e. all EPs in the dataset. 
+There are 150, i.e. all EPs in the dataset.
+
 ```{r, eval=F}
 nrow(d)
 any(table(d$EpPlotID)!=1)
 ```
 
-Merging dataset with geometry 
 ```{r, eval=F}
+# Merging dataset with geometry 
+
 # link dataset with geometry 
 # d_geo <- merge(plots_exp, d, by.x="ep", by.y="EpPlotID")
 
@@ -141,13 +146,17 @@ d_geo <- merge(plots_exp, d, by.x="ep", by.y="EpPlotID")
 st_write(d_geo, paste0(dp, "16826_4.gpkg"))
 ```
 
-
 ```{r}
+#| warning: false
+#| results: hide
 d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
 ```
 
+#### Biomass and Shannon Index for the Explo Plots spatially: 
 
 ```{r}
+#| layout-ncol: 2 
+
 pal <-  mapviewPalette("mapviewSpectralColors")
 mapview(d_geo["biomass_g"],
         cex="biomass_g",
@@ -165,167 +174,20 @@ mapview(d_geo["shannon"],
 
 ```
 
+# Research Plan
 
-# climate and weather
-https://www.worldclim.org/data/bioclim.html Bioclim 
+New Idea: Use sPlotOpen data + explo data to make predictions for the
+three landscapes.
 
-![](bioclim_codes.png)
-```{r, results='hide',fig.keep='all'}
-list.dirs(here(dp, "/Basisdaten"), full.names = FALSE)
+# To do
 
-bioclim_vars <- c("Ann_Mean_Temp", "Mean_Drnl_Rng", "Isotherm", 
-                  "Temp_Seas", "Max_T", "Min_T", "T_Ann_Rng", 
-                  "Mean_T_Wet", "Mean_T_Dry", "Mean_T_Warm", 
-                  "Mean_T_Cold", "Ann_Prec", "Prec_Wet", "Prec_Dry", "Prec_Seas", "Prec_Wet", "Prec_Dry", "Prec_Warm", "Prec_Cold")
-```
+-   Question @Meeting: ALB Explo Geometry \> landscape unit, extend,
+    right?
+-   ![](landscapemetrics_patch_rastering_25m.png) do we want to use
+    rasters? at 25m this implies non-connected patches
+-   new research plan including sPlotOpen data
+-   which germany wide soil-data to use? pH...
 
-
-```{r}
-bioclim_ALB_UTM <- rast(here(dp, "/Basisdaten/climate/bioclim_ALB_UTM.tif"))
-bioclim_ALB_weather_UTM <- rast(here(dp, "/Basisdaten/weather/bioclim_ALB_weather_UTM.tif"))
-```
-
-
-#### weather 
-
-```{r, results='hide',fig.keep='all'}
-bioclim_ALB_weather_UTM <- rast(here(dp, "/Basisdaten/weather/ALB_bioclim-2021_UTM.tif"))
-names(bioclim_ALB_weather_UTM) <- bioclim_vars
-
-par(mfrow=c(2,2))
-lapply( seq(nlyr(bioclim_ALB_weather_UTM)), function(i) {
-  plot(bioclim_ALB_weather_UTM[[i]], main=names(bioclim_ALB_weather_UTM[[i]]))
-})
-```
-
-
-# topography 
-
-
-```{r, results='hide',fig.keep='all'}
-top_ALB_UTM <- rast(here(dp, "/Basisdaten/topography/copernicus/ALB_top_UTM.tif"))
-
-par(mfrow=c(2,2))
-lapply( seq(nlyr(top_ALB_UTM)), function(i) {
-  plot(top_ALB_UTM[[i]], main=names(top_ALB_UTM[[i]]))
-})
-
-```
-
-## extent for visualization of basis and reference data 
-
-```{r, results='hide',fig.keep='all'}
-# plot(d_geo[d_geo$explrtr == "ALB", "shannon"])
-ex_ext_1 <- st_read(paste0(dp, "studyarea/ex_ext.shp"))
-ex_ext_2 <- st_read(paste0(dp, "studyarea/ex_ext_2.shp"))
-
-top_ALB_ex <- crop(top_ALB_UTM, ex_ext_1)
-top_ALB_ex2 <- crop(top_ALB_UTM, ex_ext_2)
-
-# bioclim variables are only 6 values for this extent, so doesn't really make sense
-```
-
-
-```{r}
-mapview(d_geo[d_geo$explrtr == "ALB", "shannon"],
-        cex="shannon",
-        legend=TRUE, 
-        layer.name="shannon",
-        col.regions = pal(50),
-        map.types = "Esri.WorldImagery")+
-  mapview(ex_ext_1,
-          layer.name="extent1",
-          alpha.regions=0)+
-  mapview(as(top_ALB_ex, "Raster"), 
-          na.color="#00000000",
-          alpha.regions=1,
-          map.types = "Esri.WorldImagery")
-
-
-mapview(d_geo[d_geo$explrtr == "ALB", "shannon"],
-        cex="shannon",
-        legend=TRUE, 
-        layer.name="shannon",
-        col.regions = pal(50),
-        map.types = "Esri.WorldImagery")+
-  mapview(ex_ext_2,
-          layer.name="extent2",
-          alpha.regions=0)+
-  mapview(as(top_ALB_ex2, "Raster"), 
-          na.color="#00000000",
-          alpha.regions=1,
-          map.types = "Esri.WorldImagery")
-
-
-
-```
-
-## 12m DEM from TandemX
-
-https://eoweb.dlr.de/ 
-![](eoweb_geoportal.png)
-https://eoweb.dlr.de/egp/docs/user/find_and_download.html help website for the viewer
-Collection TDM-IDEM-12m (TDM-IDEM-30m for gaps?)
-
-# Soil
-Bodenübersichtskarte 1:200.000, i.e. 1 cm = 0.2 km for whole Germany 
-https://geoviewer.bgr.de/mapapps/resources/apps/bodenatlas/index.html?lang=de&tab=boedenDeutschlands
-
-https://produktcenter.bgr.de/terraCatalog/DetailResult.do?fileIdentifier=154997F4-3C14-4A53-B217-8A7C7509E05F
-
-![](BUEK200.png)
-
-```{r}
-buek200_lscs <- st_read(here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"))
-
-# try converting from latin1 (?) to utf8
-buek200_lscs$Legende = iconv(buek200_lscs$Legende, "latin1", "UTF-8")
-buek200_lscs$Hinweis = iconv(buek200_lscs$Hinweis, "latin1", "UTF-8")
-
-buek200_lscs$NAME[buek200_lscs$NAME=="Schw\xe4bische Alb"] <- "Swabian Alb"
-buek200_lscs$NAME[buek200_lscs$NAME=="Rückland der Mecklenburg-Brandenburgischen Seenplatte"] <- "Rueckl_Mck_Seen"
-buek200_lscs$NAME[buek200_lscs$NAME=="Thüringer Becken und Randplatten"] <- "Thuer_Randpl"
-
-# doesn't render, unfortunately, there's some encoding issue
-# mapview(buek200_lscs, 
-#         zcol="Symbol", legend=FALSE)
-
-```
-
-# Basis-DLM 
-* MV: kostenlos für wissenschaftliche Nutzung, bestellt über Formular, interne Nutzung 
-* Sachsen-Anhalt:Kostenanfrage gesendet (50 € für Grünland)
-* BaWü: Kostenanfrage gesendet  
-
-* Brandenburg: kostenlos über https://geobroker.geobasis-bb.de/ bestellt und heruntergeladen
-* Thüringen: Download von https://www.geoportal-th.de/de-de/Downloadbereiche/Download-Offene-Geodaten-Th%C3%BCringen/Download-ATKIS-Basis-DLM 
-* Bayern: heruntergeladen unter https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=atkis_basis_dlm 
-* Hessen (kleines Stück): heruntergeladen von https://gds.hessen.de/INTERSHOP/web/WFS/HLBG-Geodaten-Site/de_DE/-/EUR/ViewDownloadcenter-Start
-* Niedersachsen (kleines Stück): heruntergeladen von https://opengeodata.lgln.niedersachsen.de/#bdlm 
-
-
-
-### To do
-* Question @Meeting: ALB Explo Geometry > landscape unit, extend, right? 
-* Talk about GitHub
-* ![](landscapemetrics_patch_rastering_25m.png) do we want to use rasters? at 25m this implies non-connected patches
-
-
-Notes: 
-Mewing frequency, Landuse intensity available germany wide
-Marvin Satellitenzeitreihe 
-Landscape Metrics package Jakub Jahreskomposit (DLM Daten)
-Recherche welche Metrics sinnvoll wären 
-
-
-
-
-### Research Design
-https://www.biodiversity-exploratories.de/en/about-us/research-design/
-
-### Better dataset
-IDs 31434 and 31435 
-
-
-
-## References
+Meeting Notes: Mewing frequency, Landuse intensity available germany
+wide Marvin Satellitenzeitreihe Landscape Metrics package Jakub
+Jahreskomposit (DLM Daten) Recherche welche Metrics sinnvoll wären

@@ -1,0 +1,235 @@
+---
+title: "BEyond Notebook"
+author: "Maite"
+format: html
+editor: visual
+theme: flatly
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
+```
+
+```{r setup, include=FALSE}
+options(encoding = "UTF-8")
+knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
+library(here)
+library(sf)
+library(terra)
+library(raster)
+library(mapview)
+library(kableExtra)
+```
+
+# Study sites
+
+![](explos_overview.svg){width="690"}
+
+[Explo Research Design](https://www.biodiversity-exploratories.de/en/about-us/research-design/)
+
+![](plot_design_explos.webp)
+
+```{r, message=F, results='hide',fig.keep='all'}
+dp <- "../data/"
+sap <- here(dp, "/studyarea")
+
+# explo geometries
+geo_exp <- st_read(here(sap, "all3explos.gpkg"))
+plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
+
+# landscapes
+lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
+lsc_ALB <- st_read(here(sap, "landscape_ALB_UTM_extended.shp"))
+lsc_ALB$NAME <- "Swabian Alb"
+lsc_HAI <- st_read(here(sap, "landscape_HAI_UTM.gpkg"))
+lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
+
+
+```
+
+We use the landscapes from [Naturräume und Großlandschaften Deutschlands](https://metadaten.bfn.de/BfNMetaCat23/?lang=de#/datasets/iso/d15f6de3-8711-449a-aa65-678bdc251547)
+
+-   Schwäbische Alb,
+-   Thüringer Becken und Randplatten
+-   Rückland der Mecklenburg-Brandenburgischen Seenplatte, Mecklenburgische Seenplatte
+
+```{r}
+# prep grassland display
+gr_ALB <- raster(here(sap, "grassland_ALB_UTM_cat.tif"))
+gr_SEG <- raster(here(sap, "grassland_SEG_UTM_cat.tif"))
+gr_HAI <- raster(here(sap, "grassland_HAI_UTM_cat.tif"))
+```
+
+```{r}
+
+my_pal <- c("#cacbdb", "#139404") # 1 = grasslands
+rmaps <- mapview(gr_ALB, na.color="#00000000", col.regions=my_pal)+
+  mapview(gr_SEG, na.color="#00000000", col.regions=my_pal)+
+  mapview(gr_HAI, na.color="#00000000", col.regions=my_pal)
+
+
+# display geometries etc.
+geomaps <- mapview(geo_exp, color="#b59018", alpha.regions=0, lwd=2)+
+  mapview(lsc_HAI, alpha.regions=0, lwd=2, color="#5467ab")+
+  mapview(lsc_ALB, alpha.regions=0, lwd=2, color="#5467ab")+
+  mapview(lsc_SEG, alpha.regions=0, lwd=2, color="#5467ab")+
+  mapview(plots_exp, col.regions="#edc647", cex=2, color="#edc647")
+
+
+rmaps+geomaps
+```
+
+Instead of these copernicus grassland datasets, we'll use the Basis-DLM.
+
+# Response
+
+## Explo Data from 2013
+
+This is just a test run, in fact, we want dataset *IDs 31434 and 31435*.
+
+This one came up using BExis Filters: Taxonomic Term: Plants; Project: Botany (core); Forest: No; Above Ground: Yes; Biotic Data Type: Aggregated diversity Vegetation Records for Grassland Eps/GPs in 2007, 08, 07-09, 09, 2010, 2011,2012, 2013
+
+Grassland EPs are 50×50 m.
+
+REX I: Additional plots of 30 x 30 m were marked on 15 grassland sites per exploratory, where land use is reduced to a minimum. Called RPs, subplot 7x7m is sewn.
+
+REX II: sewing on REX I plots.
+
+LUX: additional 30 x 30 plots, fertilization discontinued in 2020. The only difference between this plot and the EP plot in terms of land use is the way fertilisation is handled. These new plots are called UP (unfertilised plots). On 7x7 m plots fertilization is done manually.
+
+Testing [@explo_16826_v4]
+
+```{r}
+#| warning: false
+#| results: hide
+d <- read.csv(paste0(dp, "16826_4.csv"))
+
+knitr::kable(head(d)) %>%
+  kable_styling(full_width = F, bootstrap_options = c("striped", "hover", "condensed"), font_size = 10) %>%
+  row_spec(0, font_size=9) %>%
+  column_spec(column=1:47,width_max = "1cm")
+  
+```
+
+There are 150, i.e. all EPs in the dataset.
+
+```{r, eval=F}
+nrow(d)
+any(table(d$EpPlotID)!=1)
+```
+
+```{r, eval=F}
+# Merging dataset with geometry 
+
+# link dataset with geometry 
+# d_geo <- merge(plots_exp, d, by.x="ep", by.y="EpPlotID")
+
+# checking why not 150 were merged 
+'%notin%' <- Negate('%in%')
+misspelledperhaps <- which(d$EpPlotID %notin% plots_exp$ep)
+# d$EpPlotID[misspelledperhaps] # leading 0 missed when single digit ID number
+
+# add 0 where ID only contains 4 characters in d
+d$EpPlotID[nchar(d$EpPlotID) == 4] <- paste0(substring(d$EpPlotID[nchar(d$EpPlotID) == 4], 1,3), "0", 
+                                             substring(d$EpPlotID[nchar(d$EpPlotID) == 4], 4))
+# unique(nchar(d$EpPlotID))
+
+# link dataset with geometry 
+d_geo <- merge(plots_exp, d, by.x="ep", by.y="EpPlotID")
+st_write(d_geo, paste0(dp, "16826_4.gpkg"))
+```
+
+```{r}
+#| warning: false
+#| results: hide
+d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
+```
+
+#### Biomass and Shannon Index for the Explo Plots spatially:
+
+```{r}
+#| layout-ncol: 2 
+
+pal <-  mapviewPalette("mapviewSpectralColors")
+mapview(d_geo["biomass_g"],
+        cex="biomass_g",
+        legend=TRUE, 
+        layer.name="biomass",
+        col.regions = pal(150),
+        map.types = "Esri.WorldImagery")
+
+mapview(d_geo["shannon"],
+        cex="shannon",
+        legend=TRUE, 
+        layer.name="shannon",
+        col.regions = pal(150),
+        map.types = "Esri.WorldImagery")
+
+```
+
+## sPlotOpen data 
+
+File loaded here was generated in "sPlotOpen.qmd".
+
+Selecting plots in Germany: n grassland plots:
+
+```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
+plots <- st_read(here("../data/sPlotOpen/sPlotOpen_Germany_Grassland.gpkg"))
+germany <- st_read(paste0(sap, "germany.gpkg"))
+
+```
+
+
+```{r}
+
+mapview(plots_exp)+
+  # mapview(geo_exp)+
+  mapview(plots, col.regions="red4", size=1)+
+  mapview(germany, col.regions="beige")
+
+```
+
+
+# Research Plan
+
+![](theoretic_model.png){width="439"}
+
+New Idea: Use sPlotOpen data together with explo data (n=972 data points) to make predictions for the three landscapes.
+
+# To do
+
+## Meeting
+
+-   ALB Explo Geometry \> landscape unit, extend, right?
+
+![](landscapemetrics_patch_rastering_25m.png){width="428"}
+
+-   do we want to use rasters for the patch metrics? at 25m this implies non-connected patches although they are indeed connected
+-   new research plan including sPlotOpen data
+-   which germany wide soil-data to use? pH...
+
+## Meeting Notes:
+
+-   Mewing frequency, Landuse intensity available germany wide
+-   Marvin Satellitenzeitreihe
+-   Landscape Metrics package Jakub
+-   Jahreskomposit (DLM Daten)
+-   Recherche welche Metrics sinnvoll wären
+
+## Task list
+
+-   Get DLM for the remaining countries (Niedersachsen, NRW, Hessen, Rheinland-Pfalz, Sachsen, Schleswig-Holstein, Saarland)
+
+-   get data for entire Germany
+
+    -   soil
+
+    -   terrain
+
+    -   climate
+
+    -   LUI
+
+    -   satellite data

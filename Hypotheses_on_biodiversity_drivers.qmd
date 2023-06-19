@@ -33,7 +33,7 @@ library(leaflet)
 library(plainview)
 library(leafsync)
 library(geomtextpath)
-
+library(units)
 
 ```
 
@@ -934,6 +934,8 @@ d_geo_tcw_cor <- d_geo_tcw |>
 
 ### Soil data (BÜK 200.000)
 
+![](flaechenbodenform_erlaeuterung.png) aus [BUEK300](https://lbgr.brandenburg.de/sixcms/media.php/9/BGB-1-2_03_Kuehn_53-60.pdf ) 
+
 ```{r}
 #| warning: false
 #| results: hide
@@ -946,10 +948,22 @@ st_agr(buek200_lscs) = "constant"
 bsyse <- trimws(sub("\\:.*", "", sub("\\,.*", "", substr(buek200_lscs$Legende, 4, 80))))
 
 buek200_lscs$BSysE <- bsyse
-mapview(buek200_lscs, zcol="BSysE")
+buek200_lscs$area <- st_area(buek200_lscs)
 
-table(buek200_lscs$BSysE)
-unique(buek200_lscs$BSysE)
+bg <- buek200_lscs |> 
+  group_by(BSysE) |>
+  summarise(area_sum=sum(area)) |>
+  as.data.frame()
+
+ggplot(bg, aes(x=reorder(BSysE, -area_sum), 
+               y=area_sum))+
+  geom_bar(stat="identity")+
+  theme_minimal()+
+  xlab("Bodensystematische Einheit")+
+  ggtitle("Flächenanteile bodensystematischer Einheiten in allen drei Landschaften")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
 
 # st_write(buek200_lscs, here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"), append=FALSE)
 
@@ -975,7 +989,48 @@ sel <- do.call("rbind", sel)
 
 `%notin%` <- Negate(`%in%`)
 buekex <- rbind(buekex[buekex$ep %notin% names(ids),], sel)
+
+beg <- buekex |> 
+  group_by(BSysE) |>
+  summarise(area_sum=sum(area)) |>
+  as.data.frame()
+
+ggplot(buekex, aes(reorder(BSysE,BSysE,
+                     function(x)-length(x))))+
+  geom_bar(stat="count")+
+  theme_minimal()+
+  xlab("Bodensystematische Einheiten")+
+  ggtitle("Zugehörigkeit der Explo Plots zu Bodensystematischer Einheit")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
 ```
+
+Most explo plots belong to soil type Rendzina (RR), Niedermoor (HN), Parabraunerde (LL), Pararendzina (RZ), Gley (GG)...
+[Overview Bodentyp](https://de.wikipedia.org/wiki/Bodentyp)
+
+Soil types of the explo plots are well represented in the landscape - apart maybe from HNv, which although less, is still represented relatively well in the landscape.
+
+### Soil data to think about (To do @ meeting)
+
+More soil parameters (pH, P content, ... ) modeled based on Grassland samples in GEMAS (Geochemical Mapping of Agricultural and Grazing Land Soil in Europe) data 
+
+![GEMAS Grassland sampling sites](GEMAS_Grassland_samples.png)
+
+(1:18 000 000, though..). Here to compare with our study sites:
+
+![pH GEMAS](pH_GEMAS_resolution.png)
+
+More parameters [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/b5d4d9ab-153c-4c51-a19c-cc81a62f9b7b)
+
+![GEMAS Parameter, Indizes](GEMAS_Parameter_Indizes.png)
+
+There is also many elements, like P, Ca, C (Total, Organic, Inorganic Carbon), Na, ... [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/1094c5fd-bd58-466e-a309-412bb7636eec)
+
+
+![Interesting Maps BGR](interesting_Maps_BGR.png) somehow not able to download them in bulk... 
+
+
 
 ### Get data together
 
@@ -1050,10 +1105,7 @@ corrplot::corrplot(cm$r, p.mat= cm$p,
                    pch.cex = .6)
 ```
 
-## Sources:
-
-https://gistbok.ucgis.org/bok-topics/landscape-metrics#:\~:text=Landscape%20metrics%E2%80%94also%20known%20as,within%20a%20defined%20geographic%20area.
 
 # to do:
 
-Fließgewässer, stehende trennen, sonst versiegelte Fläche zusammenfassen
+work on categories if necessary, e.g. Fließgewässer- und stehende trennen, versiegelte Fläche zusammenfassen (wenn wir nicht ohnehin nur auf Grasland / Nicht-Grasland schauen) - vllt. auch mit Copernicus Land Cover 

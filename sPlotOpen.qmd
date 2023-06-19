@@ -1,23 +1,30 @@
 ---
-title: "sPlot open"
+title: "sPlot open - response"
 author: "Maite"
 format: html
 editor: visual
 theme: flatly
 ---
 
-Downloaded from \[here\](https://idata.idiv.de/ddm/Data/ShowData/3474?version=76) the 14.06.23, version 2.
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
+```
+
+Downloaded from [here](https://idata.idiv.de/ddm/Data/ShowData/3474?version=76) the 14.06.23, version 2.
 
 ```{r}
 library(here)
 library(sf)
 library(mapview)
+library(dplyr)
 ```
 
-
 ```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
+
 # explo geometries
-sap <- here("../data/studyarea")
+sap <- here("../data/studyarea/")
 geo_exp <- st_read(here(sap, "all3explos.gpkg"))
 plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
 lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
@@ -25,7 +32,11 @@ lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
 
 sPlotOpen.RData contains 5 objects, CMW_CWV.oa, DT2.oa, header.oa, metadata.oa and reference.oa
 
+*Community weighted means*: use trait characteristics (e.g. leaf area) per species and weigh by relative abundance of species. Results in average traits of species within an ecological community, considering the relative abundance of each species to get a better understanding of species' contribution to overall functioning / properties of the ecosystem.
+
 ```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
 load(here("../data/sPlotOpen/sPlotOpen.RData"))
 
 head(header.oa)
@@ -35,23 +46,43 @@ head(CWM_CWV.oa)
 names(CWM_CWV.oa)
 ```
 
-Header:
+Selecting plots in Germany: n grassland plots:
 
 ```{r}
-h <- header.oa
-
-plots = st_as_sf(h, coords = c("Longitude","Latitude"), 
+#| results: 'hide'
+#| fig.keep: 'all'
+all_plots = st_as_sf(header.oa, coords = c("Longitude","Latitude"), 
                  remove = FALSE, crs = st_crs(4326))
 
+# germany <- geodata::gadm(country = "Germany", level = 1, path=sap) 
+# germany <- st_as_sf(germany)
+# st_write(germany, paste0(sap, "germany.gpkg"))
+
+germany <- st_read(paste0(sap, "germany.gpkg"))
+
+# spatial intersection seems safer than using "country" in header.oa
+plots_ger <- st_intersection(all_plots, germany) 
+
+plots <- plots_ger |>
+  filter(Grassland == TRUE)
+
+# troubleshooting writing issue
+any(duplicated(toupper(names(plots))))
+which(duplicated(toupper(names(plots))))
+names(plots)[50] <- "Cntry"
+
+st_write(plots, here("../data/sPlotOpen/sPlotOpen_Germany_Grassland.gpkg"), 
+         layer_options = "OVERWRITE=true")
+
+```
+
+```{r}
+length(unique(plots$PlotObservationID))
+```
+
+```{r}
 plotIDs <- plots |>
-  filter(Country == "Germany") |>
-  filter(Grassland == TRUE) |>
-  distinct(PlotObservationID) |>
   pull(PlotObservationID)
-
-
-h <- header.oa |>
-  filter(PlotObservationID %in% plotIDs)
 
 d <- DT2.oa |>
   filter(PlotObservationID %in% plotIDs)
@@ -59,19 +90,24 @@ d <- DT2.oa |>
 cwm <- CWM_CWV.oa |>
   filter(PlotObservationID %in% plotIDs)
 
-mapview(plots_exp)+mapview(geo_exp)+mapview(lsc_all, alpha=0)+
-  mapview(plots_g, col.regions="darkred", size=1)
-
+cwm <- cbind(plots, cwm)
 ```
 
-PlotObservationID 704613 in HEG e.g.
 ```{r}
-d <- CWM_CWV.oa
 
-d |>
-  filter(PlotObservationID == 704613)
+mapview(plots_exp)+
+  mapview(geo_exp)+
+  # mapview(lsc_all)+
+  mapview(cwm, zcol="Species_richness", size=1)+
+  mapview(germany)
 
-sPlotOpen_citation(IDs=plotIDs, level="database",
-                   out.file="../temp/database_test.bib")
 ```
 
+```{r}
+# this doesn't work yet 
+# sPlotOpen_citation(IDs=plotIDs, 
+#                    level="database",
+#                    out.file="../temp/database_test.bib")
+
+
+```
