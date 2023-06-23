@@ -163,53 +163,6 @@ Ideas on what aspects of the landscape patterns might be relevant for biodiversi
 
     -   *soil depth, mowing frequency*
 
-# available predictors
-
-plot neighborhood
-
--   \% arable land in buffer
--   \% grassland in buffer
-
-patch metrics
-
--   grassland patch area
--   euclidean nearest neighbor distance (enn)
--   standardized patch complexity (frac)
--   core area index (cai)
-
-Land use intensity
-
--   LUI
--   grazing
--   mowing
--   fertilization
--   inter-annual variation in LUI
-
-terrain
-
--   elevation
--   slope
--   aspect
--   roughness
--   twi
-
-climate
-
--   bioclim
-
-satellite data
-
--   räumlich und zeitliche spektrale Diversität
--   Produktivität via NDVI
--   ...?
-
-soil properties
-
--   pH
--   ...?
-
-Interesting [page](https://www.bgr.bund.de/EN/Themen/Boden/Produkte/produktkatalog_node_en.html;jsessionid=BAD9B7D166B97D4E4D6EB7DE291EE444.internet971) for germany-wide soil data
-
 ```{r}
 #| results: 'hide'
 #| fig.keep: 'all'
@@ -321,12 +274,6 @@ Make a buffer of radius = 500m², i.e. 196.350m² around explo plots and take a 
 
 rel = relief (Felsen / Felsblock)
 
-https://www.adv-online.de/icc/extdeu/nav/a63/binarywriterservlet%3FimgUid%3D9201016e-7efa-8461-e336-b6951fa2e0c9%26uBasVariant%3D11111111-1111-1111-1111-111111111111
-
-Vegetation categories are as follows:
-
-![](ATKIS_vegetation.png)
-
 ```{r, eval=F}
 #| eval: false
 #| warning: false
@@ -369,7 +316,7 @@ full_dlm_th_exp_transf_subs <- lapply(seq(full_dlm_th_exp_transf), function(i){
   } 
 })
 full_dlm_th <- do.call(rbind, full_dlm_th_exp_transf_subs)
-st_write(full_dlm_th,here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_exploHAI.gpkg"))
+st_write(full_dlm_th, here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_exploHAI.gpkg"))
 ```
 
 ```{r}
@@ -417,7 +364,6 @@ coldf <- data.frame(colors=dlmcols, colornames = dlmcolnams)
 # add colors to to dlm
 dlm <- merge(dlm, coldf, by.x="colornam", by.y="colornames")
 
-nam_rel_info_lookup <- unique(st_drop_geometry(dlm[ , c("rel_cat", "nam", "rel_info", "colors")]))
 
 ggplot(dlm, aes(x=reorder(rel_cat, rel_cat, function(x)-length(x)), 
                 fill=colornam)) +
@@ -432,7 +378,11 @@ st_write(dlm,here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_relcat_e
 ```
 
 ```{r}
+#| eval: false
+
 # show categories and legend
+nam_rel_info_lookup <- unique(st_drop_geometry(dlm[ , c("rel_cat", "nam", "rel_info", "colors")]))
+
 lookup_ordered <- nam_rel_info_lookup[order(nam_rel_info_lookup$nam),] 
 
 lookup_ordered %>% kbl() %>% 
@@ -766,13 +716,12 @@ ggplot(d_lui, aes(F_STD, shannon))+
   theme_minimal()+
   ggtitle("fertilization x biodiversity", subtitle = paste0("n = ", nrow(d_lui[d_lui$year == "2013",])))
 
-
-dl <- d_lui |> data.frame() |> select(shannon, LUI, G_STD, M_STD, F_STD)
-
-
 ```
 
 ```{r}
+dl <- d_lui |> data.frame() |> select(shannon, LUI, G_STD, M_STD, F_STD)
+
+
 cmt <- psych::corr.test(dl, method="spearman")
 corrplot::corrplot(cmt$r, 
                    p.mat= cmt$p,
@@ -934,105 +883,7 @@ d_geo_tcw_cor <- d_geo_tcw |>
 
 ### Soil data (BÜK 200.000)
 
-![](flaechenbodenform_erlaeuterung.png) aus [BUEK300](https://lbgr.brandenburg.de/sixcms/media.php/9/BGB-1-2_03_Kuehn_53-60.pdf ) 
-
-```{r}
-#| warning: false
-#| results: hide
-
-buek200_lscs <- st_read(here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"))
-st_agr(buek200_lscs) = "constant"
-
-
-# extract Bodensystematische Einheiten
-bsyse <- trimws(sub("\\:.*", "", sub("\\,.*", "", substr(buek200_lscs$Legende, 4, 80))))
-
-buek200_lscs$BSysE <- bsyse
-buek200_lscs$area <- st_area(buek200_lscs)
-
-bg <- buek200_lscs |> 
-  group_by(BSysE) |>
-  summarise(area_sum=sum(area)) |>
-  as.data.frame()
-
-ggplot(bg, aes(x=reorder(BSysE, -area_sum), 
-               y=area_sum))+
-  geom_bar(stat="identity")+
-  theme_minimal()+
-  xlab("Bodensystematische Einheit")+
-  ggtitle("Flächenanteile bodensystematischer Einheiten in allen drei Landschaften")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-
-
-
-# st_write(buek200_lscs, here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"), append=FALSE)
-
-buekex <- st_intersection(buek200_lscs, d_geo)
-
-
-#### troubleshooting all SEG plots appear twice in intersection 
-# table(d_geo$ep)
-# buekex[buekex$ep=="SEG34",]
-# ids <- which(table(buekex$ep)==2)
-# lapply(seq(ids), function(i) {
-#   buekex$NRKART[buekex$ep==names(ids)[i]]
-# })
-
-### something is wrong with the buek200_lscs file, same NRKART, but different NAME and OBJECTID, eliminating one row
-
-ids <- which(table(buekex$ep)==2)
-sel <- lapply(seq(ids), function(i) {
-  # buekex$NRKART[buekex$ep==names(ids)[i]]
-  buekex[buekex$ep==names(ids)[i],][1,]
-})
-sel <- do.call("rbind", sel)
-
-`%notin%` <- Negate(`%in%`)
-buekex <- rbind(buekex[buekex$ep %notin% names(ids),], sel)
-
-beg <- buekex |> 
-  group_by(BSysE) |>
-  summarise(area_sum=sum(area)) |>
-  as.data.frame()
-
-ggplot(buekex, aes(reorder(BSysE,BSysE,
-                     function(x)-length(x))))+
-  geom_bar(stat="count")+
-  theme_minimal()+
-  xlab("Bodensystematische Einheiten")+
-  ggtitle("Zugehörigkeit der Explo Plots zu Bodensystematischer Einheit")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-
-
-```
-
-Most explo plots belong to soil type Rendzina (RR), Niedermoor (HN), Parabraunerde (LL), Pararendzina (RZ), Gley (GG)...
-[Overview Bodentyp](https://de.wikipedia.org/wiki/Bodentyp)
-
-Soil types of the explo plots are well represented in the landscape - apart maybe from HNv, which although less, is still represented relatively well in the landscape.
-
-### Soil data to think about (To do @ meeting)
-
-More soil parameters (pH, P content, ... ) modeled based on Grassland samples in GEMAS (Geochemical Mapping of Agricultural and Grazing Land Soil in Europe) data 
-
-![GEMAS Grassland sampling sites](GEMAS_Grassland_samples.png)
-
-(1:18 000 000, though..). Here to compare with our study sites:
-
-![pH GEMAS](pH_GEMAS_resolution.png)
-
-More parameters [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/b5d4d9ab-153c-4c51-a19c-cc81a62f9b7b)
-
-![GEMAS Parameter, Indizes](GEMAS_Parameter_Indizes.png)
-
-There is also many elements, like P, Ca, C (Total, Organic, Inorganic Carbon), Na, ... [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/1094c5fd-bd58-466e-a309-412bb7636eec)
-
-
-![Interesting Maps BGR](interesting_Maps_BGR.png) somehow not able to download them in bulk... 
-
-
-
-### Get data together
+# Get data together
 
 ```{r}
 d_geo_abiot <- buekex |> 
@@ -1061,7 +912,7 @@ alldat <- merge(d_geo_abiot_nbh_p, dl, by="ep")
 
 ```
 
-## all variables together (no BK50 and satellite data yet)
+## all variables together (no soil and satellite data yet)
 
 ```{r}
 #| fig.height: 9
@@ -1105,7 +956,6 @@ corrplot::corrplot(cm$r, p.mat= cm$p,
                    pch.cex = .6)
 ```
 
-
 # to do:
 
-work on categories if necessary, e.g. Fließgewässer- und stehende trennen, versiegelte Fläche zusammenfassen (wenn wir nicht ohnehin nur auf Grasland / Nicht-Grasland schauen) - vllt. auch mit Copernicus Land Cover 
+work on categories if necessary, e.g. Fließgewässer- und stehende trennen, versiegelte Fläche zusammenfassen (wenn wir nicht ohnehin nur auf Grasland / Nicht-Grasland schauen) - vllt. auch mit Copernicus Land Cover

@@ -4,6 +4,7 @@ author: "Maite"
 format: html
 editor: visual
 theme: flatly
+toc: true
 ---
 
 ```{r include=FALSE}
@@ -21,7 +22,7 @@ library(mapview)
 library(kableExtra)
 ```
 
-# Study sites
+# Areas of interest - Exploratories design
 
 ![](explos_overview.svg){width="690"}
 
@@ -38,12 +39,26 @@ geo_exp <- st_read(here(sap, "all3explos.gpkg"))
 plots_exp <- st_read(here(sap, "experiementalplots.gpkg"))
 
 # landscapes
-lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
-lsc_ALB <- st_read(here(sap, "landscape_ALB_UTM_extended.shp"))
-lsc_ALB$NAME <- "Swabian Alb"
-lsc_HAI <- st_read(here(sap, "landscape_HAI_UTM.gpkg"))
-lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
+# lsc_all <- st_read(here(sap, "landscape_all.gpkg"))
+# lsc_ALB <- st_read(here(sap, "landscape_ALB_UTM_extended.shp"))
+# lsc_ALB$NAME <- "Swabian Alb"
+# lsc_HAI <- st_read(here(sap, "landscape_HAI_UTM.gpkg"))
+# lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
+# 
+# lsc_ALB <- lsc_ALB[names(lsc_ALB) %in% names(lsc_HAI)]
+# lsc_HAI <- lsc_HAI[names(lsc_HAI) %in% names(lsc_ALB)]
+# lsc_SEG <- lsc_SEG[names(lsc_SEG) %in% names(lsc_ALB)]
+# st_geometry(lsc_ALB) <- "geom"
+# 
+# lsc_all_ext <- rbind(lsc_ALB, lsc_HAI, lsc_SEG)
+# 
+# st_write(lsc_all_ext, "../data/studyarea/all_landscapes_extended.gpkg")
 
+lsc_all <- st_read(here("../data/studyarea/all_landscapes_extended.gpkg"))
+
+lsc_HAI <- lsc_all[2,]
+lsc_ALB <- lsc_all[1,]
+lsc_SEG <- lsc_all[c(3,4),]
 
 ```
 
@@ -81,7 +96,7 @@ rmaps+geomaps
 
 Instead of these copernicus grassland datasets, we'll use the Basis-DLM.
 
-# Response
+# Response data
 
 ## Explo Data from 2013
 
@@ -167,7 +182,7 @@ mapview(d_geo["shannon"],
 
 ```
 
-## sPlotOpen data 
+## sPlotOpen data
 
 File loaded here was generated in "sPlotOpen.qmd".
 
@@ -179,8 +194,9 @@ Selecting plots in Germany: n grassland plots:
 plots <- st_read(here("../data/sPlotOpen/sPlotOpen_Germany_Grassland.gpkg"))
 germany <- st_read(paste0(sap, "germany.gpkg"))
 
+# two data points on Sylt that don't have a literature reference
+# mapview(plots[plots$PlotObservationID %in% c(461774, 461819),])
 ```
-
 
 ```{r}
 
@@ -189,8 +205,22 @@ mapview(plots_exp)+
   mapview(plots, col.regions="red4", size=1)+
   mapview(germany, col.regions="beige")
 
-```
 
+
+mapview(plots, zcol="Location_uncertainty")
+
+table(plots$Location_uncertainty, plots$Dataset)
+
+loc_uncert_buf <- lapply(seq(plots), function(i){
+  buf <- st_buffer(plots[i,], as.numeric(plots[i,10])[1])
+})
+
+loc_uncert <- do.call("rbind", loc_uncert_buf)
+
+mapview(loc_uncert, col.regions="red4")+
+  mapview(plots, zcol="Location_uncertainty")
+
+```
 
 # Research Plan
 
@@ -209,6 +239,8 @@ New Idea: Use sPlotOpen data together with explo data (n=972 data points) to mak
 -   do we want to use rasters for the patch metrics? at 25m this implies non-connected patches although they are indeed connected
 -   new research plan including sPlotOpen data
 -   which germany wide soil-data to use? pH...
+-   we don't actually map species richness, we map species richness *potential* based on actual management situation
+-   further plans: management simulations (change fertilization settings to look at species richness prediction change)
 
 ## Meeting Notes:
 
@@ -218,9 +250,20 @@ New Idea: Use sPlotOpen data together with explo data (n=972 data points) to mak
 -   Jahreskomposit (DLM Daten)
 -   Recherche welche Metrics sinnvoll wären
 
+21.06.
+
+-   2 requested datasets: no functional diversity
+-   scripts in BExis & github on the datasets
+-   keine diversity
+-   Zusatzparameter für Plots
+-   data on dispersal classes
+-   sPlot sPlotOpen subset of sPlot (check, how uncertainty is and contact maybe Dr. Gabriella Damasceno gabriella.damasceno\@idiv.de)
+
 ## Task list
 
 -   Get DLM for the remaining countries (Niedersachsen, NRW, Hessen, Rheinland-Pfalz, Sachsen, Schleswig-Holstein, Saarland)
+
+-   for those that are not available: get grassland HRL and agriculture
 
 -   get data for entire Germany
 
@@ -233,3 +276,11 @@ New Idea: Use sPlotOpen data together with explo data (n=972 data points) to mak
     -   LUI
 
     -   satellite data
+
+-   pH Werte / Bodenparameter vergleichen 500m Karte + Bodenparameter aus den Explos
+
+-   get clay content / ... physical parameters from Ballabio
+
+-   check uncertainty in sPlotOpen (sPlot not public) and contact maybe Dr. Gabriella Damasceno gabriella.damasceno\@idiv.de)
+
+-   research grassland species richness modelling germany

@@ -17,6 +17,7 @@ library(here)
 library(sf)
 library(mapview)
 library(dplyr)
+library(kableExtra)
 ```
 
 ```{r}
@@ -49,6 +50,7 @@ names(CWM_CWV.oa)
 Selecting plots in Germany: n grassland plots:
 
 ```{r}
+#| eval: false
 #| results: 'hide'
 #| fig.keep: 'all'
 all_plots = st_as_sf(header.oa, coords = c("Longitude","Latitude"), 
@@ -77,6 +79,9 @@ st_write(plots, here("../data/sPlotOpen/sPlotOpen_Germany_Grassland.gpkg"),
 ```
 
 ```{r}
+plots <- st_read(here("../data/sPlotOpen/sPlotOpen_Germany_Grassland.gpkg"))
+germany <- st_read(paste0(sap, "germany.gpkg"))
+
 length(unique(plots$PlotObservationID))
 ```
 
@@ -104,10 +109,158 @@ mapview(plots_exp)+
 ```
 
 ```{r}
-# this doesn't work yet 
-# sPlotOpen_citation(IDs=plotIDs, 
-#                    level="database",
+# # this doesn't work yet 
+# sPlotOpen_citation(IDs=plotIDs,
+#                    level="plot",
 #                    out.file="../temp/database_test.bib")
 
 
 ```
+
+### Which datasets are the ones with high location uncertainty? 
+
+```{r}
+iDs <- plots$PlotObservationID
+header.oa[header.oa$PlotObservationID %in% iDs,]
+```
+
+
+```{r}
+# which are over 100m uncertain? 
+IDs_loc_uncert <- header.oa$PlotObservationID[header.oa$GIVD_ID %in% unique(plots$GIVD_ID[plots$Location_uncertainty > 100])]
+
+```
+
+about half of the grassland plots in Germany are over 100m uncertain and those belong to belong to three GIVD_IDs:
+
+```{r}
+table(IDs_loc_uncert %in% iDs)
+
+unique(plots$GIVD_ID[plots$Location_uncertainty > 100])
+```
+
+
+
+```{r}
+meta_iDs <- metadata.oa %>% 
+  filter(PlotObservationID %in% iDs) %>% 
+  distinct()
+
+bibtexkeys <- meta_iDs %>% 
+  pull(DB_BIBTEXKEY) #  DB_BIBTEXKEY for databases in sPlotOpen_citation function, BIBTEXKEY is for the contributors to the databases 
+
+reference.oa %>% 
+  dplyr::select(-Fullref) %>% 
+  filter(BIBTEXKEY %in% bibtexkeys) |>
+  pull(BIBTEXKEY)
+
+
+```
+
+Merging database bibtex key to plots to show location uncertainty by databases: 
+```{r}
+ID_DB_key <- metadata.oa |>
+  select(DB_BIBTEXKEY, PlotObservationID)
+
+plots_key <- merge(plots, ID_DB_key)
+
+t <- table(plots_key$Location_uncertainty, plots_key$DB_BIBTEXKEY)
+tab <- t |> as.data.frame.matrix()
+tab$loc_uncert <- rownames(tab) 
+rownames(tab) <- seq(nrow(tab))
+tab <- tab[,c(7, 1:6)]
+tab$loc_uncert <- as.numeric(tab$loc_uncert)
+
+tab |>
+  kableExtra::kbl(caption = "amount of plots by location uncertainty and database authors: ", 
+                  escape = F, align = "c") %>% 
+  kable_paper(full_width = F) %>% 
+  kable_classic("striped")
+
+```
+
+chytr2003a, dengler2012a and garbolino2012a are safe. ask ewald2012a,  jandt2012a and jansen (we could exclude the uncertain plots here)
+
+there are 2 plots without literature reference - they are located on Sylt 
+
+```{r}
+no_ref_IDs <- meta_iDs |>
+  filter(is.na(DB_BIBTEXKEY)) |>
+  pull(PlotObservationID)
+
+mapview(plots[plots$PlotObservationID %in% no_ref_IDs,])
+
+
+```
+
+Checking Jandt - this is a database itself, German Vegetation Reference Database ([GVRD](https://www.biodiversity-plants.de/biodivers_ecol/article_meta.php?DOI=10.7809/b-e.00146))
+
+```{r}
+jandtIDs <- meta_iDs |>
+  filter(DB_BIBTEXKEY == "jandt2012a") |>
+  pull(PlotObservationID)
+
+jandtPlots <- plots |>
+  filter(PlotObservationID %in% jandtIDs)
+
+dp <- "../data/"
+d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
+
+mapview(jandtPlots, zcol="Location_uncertainty")+
+  mapview(d_geo, col.regions="black")
+```
+
+Checking Ewald VegetWeb – the national online‐repository of vegetation plots from Germany[here](https://doi.org/10.7809/b-e.00073)
+```{r}
+ewaIDs <- meta_iDs |>
+  filter(DB_BIBTEXKEY == "ewald2012a") |>
+  pull(PlotObservationID)
+
+ewaPlots <- plots |>
+  filter(PlotObservationID %in% ewaIDs)
+
+mapview(ewaPlots, zcol="Location_uncertainty")+
+  mapview(d_geo, col.regions="black")
+```
+
+Jansen VegMV – the vegetation database of Mecklenburg-Vorpommern [here](https://doi.org/10.7809/b-e.00070)
+
+
+# checking by database contributors 
+```{r}
+
+bibtexkeys <- meta_iDs %>% 
+  pull(BIBTEXKEY) #  DB_BIBTEXKEY for databases in sPlotOpen_citation function, BIBTEXKEY is for the contributors to the databases 
+
+reference.oa %>% 
+  dplyr::select(-Fullref) %>% 
+  filter(BIBTEXKEY %in% bibtexkeys) |>
+  pull(BIBTEXKEY)
+
+ID_key <- metadata.oa |>
+  select(BIBTEXKEY, PlotObservationID)
+
+plots_key <- merge(plots, ID_key)
+
+t <- table(plots_key$Location_uncertainty, plots_key$BIBTEXKEY)
+tab <- t |> as.data.frame.matrix()
+tab$loc_uncert <- rownames(tab) 
+rownames(tab) <- seq(nrow(tab))
+tab$loc_uncert <- as.numeric(tab$loc_uncert)
+
+tab |>
+  kableExtra::kbl(caption = "amount of plots by location uncertainty authors: ", 
+                  escape = F, align = "c") %>% 
+  kable_paper(full_width = F) %>% 
+  kable_classic("striped")
+
+
+```
+
+up to 100m uncertainty, remaining n = 
+```{r}
+plots_100 <- plots[plots$Location_uncertainty <= 100,]
+nrow(plots_100)
+mapview(plots_100)
+```
+
