@@ -93,17 +93,15 @@ Interesting [page](https://www.bgr.bund.de/EN/Themen/Boden/Produkte/produktkatal
 
 -   NRW downloaded from https://www.opengeodata.nrw.de/produkte/geobasis/lm/akt/basis-dlm/
 
--   Sachsen downloaded from https://www.geodaten.sachsen.de/downloadbereich-basis-dlm-4168.html 
-
+-   Sachsen downloaded from https://www.geodaten.sachsen.de/downloadbereich-basis-dlm-4168.html
 
 to get:
 
 -   Rheinland-Pfalz kostenpflichtig https://lvermgeo.rlp.de/de/produkte/geotopografie/digitale-landschaftsmodelle-dlm/digitales-basislandschaftsmodell-basis-dlm/
 
-
 -   Schleswig-Holstein angefragt (kostenpflichtig)
 
--   Saarland fürchterliche Website 
+-   Saarland fürchterliche Website
 
 -   Bremen Anfrage gesendet (kostenpflichtig)
 
@@ -135,9 +133,9 @@ lookup_ordered %>% kbl() %>%
               popover = paste("am:", mtcars$am[1:8]))
 ```
 
-Where there's no DLM available, we can use the Copernicus High resolution layer for grassland (10m) from 2018 and the Corine agriculture classification from 2018. 
+Where there's no DLM available, we can use the Copernicus High resolution layer for grassland (10m) from 2018 and the Corine agriculture classification from 2018.
 
-Best extract data for grassland and agricultural proportion for all plots, compare where we have data. 
+Best extract data for grassland and agricultural proportion for all plots, compare where we have data.
 
 ```{r}
 cp = here("../data/Basisdaten/landscape/Copernicus/")
@@ -176,7 +174,6 @@ mapview(m)
 writeRaster(grass_ger, paste0(cp, "/Grassland_2018_Germany/grassland_ger_HRL.tif"), overwrite=T)
 ```
 
-
 ```{r}
 
 agri_ger <- raster(paste0(cp, "/corine_agricultural_area_2018/cor_agri_2018_ger.tif"))
@@ -184,13 +181,11 @@ grass_ger <- raster::raster(paste0(cp, "/Grassland_2018_Germany/grassland_ger_HR
 mapview(grass_ger)
 ```
 
-
 ```{r}
 # get difference of agriculture and grassland HRL to receive actual agriculture
 
 
 ```
-
 
 # Abiotic niche
 
@@ -449,10 +444,9 @@ somehow not able to download them in bulk...
 
 ![pH in H20 data (viridis) with HEG explo points](pH_example.png)
 
-those are available: 
+those are available:
 
 ![](data_avail.png)
-
 
 **European Soil Database v2.0**
 
