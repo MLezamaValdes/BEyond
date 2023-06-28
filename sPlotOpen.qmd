@@ -81,6 +81,8 @@ st_write(plots, here("../data/sPlotOpen/sPlotOpen_Germany_Grassland.gpkg"),
 ```
 
 ```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
 plots <- st_read(here("../data/sPlotOpen/sPlotOpen_Germany_Grassland.gpkg"))
 germany <- st_read(paste0(sap, "germany.gpkg"))
 
@@ -125,9 +127,11 @@ cwm <- cbind(plots, cwm)
 
 ##### Which datasets are the ones with high location uncertainty?
 
+All of the below is about data points that are more than 100m uncertain:
+
 ```{r}
 iDs <- plots$PlotObservationID
-header.oa[header.oa$PlotObservationID %in% iDs,]
+# header.oa[header.oa$PlotObservationID %in% iDs,]
 ```
 
 ```{r}
@@ -136,12 +140,9 @@ IDs_loc_uncert <- header.oa$PlotObservationID[header.oa$GIVD_ID %in% unique(plot
 
 ```
 
-about half of the grassland plots in Germany are over 100m uncertain and those belong to belong to three GIVD_IDs:
-
 ```{r}
+#| echo: true
 table(IDs_loc_uncert %in% iDs)
-
-unique(plots$GIVD_ID[plots$Location_uncertainty > 100])
 ```
 
 ```{r}
@@ -152,7 +153,7 @@ meta_iDs <- metadata.oa %>%
 bibtexkeys <- meta_iDs %>% 
   pull(DB_BIBTEXKEY) #  DB_BIBTEXKEY for databases in sPlotOpen_citation function, BIBTEXKEY is for the contributors to the databases 
 
-reference.oa %>% 
+authors = reference.oa %>% 
   dplyr::select(-Fullref) %>% 
   filter(BIBTEXKEY %in% bibtexkeys) |>
   pull(BIBTEXKEY)
@@ -160,9 +161,8 @@ reference.oa %>%
 
 ```
 
-Merging database bibtex key to plots to show location uncertainty by databases:
-
 ```{r}
+# Merging database bibtex key to plots to show location uncertainty by databases:
 ID_DB_key <- metadata.oa |>
   select(DB_BIBTEXKEY, PlotObservationID)
 
@@ -176,14 +176,12 @@ tab <- tab[,c(7, 1:6)]
 tab$loc_uncert <- as.numeric(tab$loc_uncert)
 
 tab |>
-  kableExtra::kbl(caption = "amount of plots by location uncertainty and database authors: ", 
+  kableExtra::kbl(caption = "amount of plots by location uncertainty by database: ", 
                   escape = F, align = "c") %>% 
   kable_paper(full_width = F) %>% 
   kable_classic("striped")
 
 ```
-
-chytr2003a, dengler2012a and garbolino2012a are safe. ask ewald2012a, jandt2012a and jansen (we could exclude the uncertain plots here)
 
 there are 2 plots without literature reference - they are located on Sylt
 
@@ -197,9 +195,13 @@ no_ref_IDs <- meta_iDs |>
 
 ```
 
-Checking Jandt - this is a database itself, German Vegetation Reference Database ([GVRD](https://www.biodiversity-plants.de/biodivers_ecol/article_meta.php?DOI=10.7809/b-e.00146))
+checking for database sources:
 
 ```{r}
+#| eval: false
+
+# Checking Jandt - this is a database itself, German Vegetation Reference Database ([GVRD](https://www.biodiversity-plants.de/biodivers_ecol/article_meta.php?DOI=10.7809/b-e.00146))
+
 jandtIDs <- meta_iDs |>
   filter(DB_BIBTEXKEY == "jandt2012a") |>
   pull(PlotObservationID)
@@ -212,11 +214,9 @@ d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
 
 # mapview(jandtPlots, zcol="Location_uncertainty")+
 #   mapview(d_geo, col.regions="black")
-```
 
-Checking Ewald VegetWeb -- the national online‐repository of vegetation plots from Germany[here](https://doi.org/10.7809/b-e.00073)
+#Checking Ewald VegetWeb -- the national online‐repository of vegetation plots from Germany[here](https://doi.org/10.7809/b-e.00073)
 
-```{r}
 ewaIDs <- meta_iDs |>
   filter(DB_BIBTEXKEY == "ewald2012a") |>
   pull(PlotObservationID)
@@ -226,18 +226,20 @@ ewaPlots <- plots |>
 
 # mapview(ewaPlots, zcol="Location_uncertainty")+
 #   mapview(d_geo, col.regions="black")
+
+# Jansen VegMV -- the vegetation database of Mecklenburg-Vorpommern [here](https://doi.org/10.7809/b-e.00070)
+
 ```
 
-Jansen VegMV -- the vegetation database of Mecklenburg-Vorpommern [here](https://doi.org/10.7809/b-e.00070)
-
-##### checking by database contributors
+##### 
 
 ```{r}
+# checking by database contributors 
 
 bibtexkeys <- meta_iDs %>% 
   pull(BIBTEXKEY) #  DB_BIBTEXKEY for databases in sPlotOpen_citation function, BIBTEXKEY is for the contributors to the databases 
 
-reference.oa %>% 
+authors_db = reference.oa %>% 
   dplyr::select(-Fullref) %>% 
   filter(BIBTEXKEY %in% bibtexkeys) |>
   pull(BIBTEXKEY)
@@ -246,7 +248,10 @@ ID_key <- metadata.oa |>
   select(BIBTEXKEY, PlotObservationID)
 
 plots_key <- merge(plots, ID_key)
+```
 
+```{r}
+#| eval: false
 t <- table(plots_key$Location_uncertainty, plots_key$BIBTEXKEY)
 tab <- t |> as.data.frame.matrix()
 tab$loc_uncert <- rownames(tab) 
@@ -255,14 +260,14 @@ tab$loc_uncert <- as.numeric(tab$loc_uncert)
 tab <- tab[ c(ncol(tab),1:(ncol(tab)-1))]
 
 tab |>
-  kableExtra::kbl(caption = "amount of plots by location uncertainty authors: ", 
+  kableExtra::kbl(caption = "amount of plots by location uncertainty and authors: ", 
                   escape = F, align = "c") %>% 
   kable_paper(full_width = F) %>% 
   kable_classic("striped")
 
 ```
 
-look into authors from the databases:
+Which datasets are more recent than 2000 and have a low Location uncertainty? (including NA values, 999 in Year so they appear:) Green are those that could be used
 
 ```{r}
 library(lubridate)
@@ -289,7 +294,7 @@ overv |>
                   escape = F, align = "c") %>% 
   kable_paper(full_width = F) %>% 
   kable_classic("striped") %>% 
-  row_spec(row=which(overv$Location_uncertainty < 100), 
+  row_spec(row=which(overv$Location_uncertainty < 100)[2:length(which(overv$Location_uncertainty < 100))], 
            color = "white", background = "green")
 
 
@@ -297,15 +302,7 @@ overv |>
 
 ```
 
-up to 100m uncertainty, remaining n =
-
-```{r}
-plots_100 <- plots[plots$Location_uncertainty <= 100,]
-nrow(plots_100)
-plots_100$year <- year(plots_100$Date_of_recording)
-# mapview(plots_100, zcol="year")
-   
-```
+So: sPlotOpen doesn't make sense to use, found new data source:
 
 ## ReSurveyGermany by iDiv
 
@@ -317,7 +314,7 @@ from Nature [paper](https://www.nature.com/articles/s41597-022-01688-6)
 
 Column names are explained in [this table](https://www.nature.com/articles/s41597-022-01688-6/tables/4)
 
-The unique Plot ID is "PROJECT_ID_RELEVE_NR" Before using selected data in the end, we need to think about column "MANIPULATE", whether the plot was part of a manipulative experiment ("Y") or not ("N").
+The unique Plot ID is "PROJECT_ID_RELEVE_NR"
 
 ```{r}
 #| layout-ncol: 2
@@ -332,7 +329,7 @@ head <- st_as_sf(h, coords = c("LONGITUDE","LATITUDE"), crs= st_crs(4326))
 # mapview(head, zcol="YEAR")
 ```
 
-### First, selecting recent plots:
+### First, selecting recent plots: 12637 features
 
 ```{r}
 head_recent <-  head %>%
@@ -340,7 +337,7 @@ head_recent <-  head %>%
 
 ```
 
-Of those, many have no info on precision, though - can we rescue some of them? Plots with NA location (counts descending)
+Of those, many have no info on precision, though - can we rescue some of them? Plots with NA location precision (counts descending)
 
 ```{r}
 tab2 <- table(head_recent$RS_PROJECT[is.na(head_recent$PRECISION)], 
@@ -355,7 +352,7 @@ tab2 <- tab2[rev(order(tab2$sum)),]
 
 
 tab2 |>
-  kableExtra::kbl(caption = "recent plots with NA locations", 
+  kableExtra::kbl(caption = "recent plots with NA precision", 
                   escape = F, align = "c") %>% 
   kable_paper(full_width = F) %>% 
   kable_classic("striped")
@@ -393,12 +390,15 @@ data.frame(ndistinct, tab2$sum[1:12])
 
 "PRECISION": "Uncertainty in m, of coordinates for geographic position of plots, provided by the author or estimated if coordinates were taken from a topographic map."
 
-is.na table PRECISION:
-
 ```{r}
 
 hist(head_recent$PRECISION, breaks=40)
 
+```
+
+is.na table PRECISION:
+
+```{r}
 table(is.na(head_recent$PRECISION))
 
 ```
@@ -413,9 +413,9 @@ Auswahl der Untersuchungsflächen aus Dauergrünland, nach Anteilen Wiesen / Wei
 
 Auf dem Feldstück wurde eine kreisförmige Fläche von 25 m² in einem repräsentativen Teil des Bestandes für die Vegetationsaufnahme ausgewählt \[..\] Mittelpunkt des Kreises wurde in der Regel mit einem Dauermagneten markiert und die GPS-Koordinaten (Gauß-Krüger-Koordinaten, Streifen 4), sowie die Höhe über NN ermittelt.
 
-keine Genauigkeit angegeben - aber mehr als GPS-Koordinaten ermittelt können wir auch nicht erwarten, oder?
+***keine Genauigkeit angegeben - aber mehr als GPS-Koordinaten ermittelt können wir auch nicht erwarten, oder?***
 
-TO DO: GO ON CHECKING DATASETS FOR SUITABILITY
+TO DO: GO ON CHECKING NA LOCATION PRECISION DATASETS FOR SUITABILITY
 
 "GEO_LEV": "Method of how the geographic location was obtained:
 
@@ -428,9 +428,12 @@ TO DO: GO ON CHECKING DATASETS FOR SUITABILITY
 -   POINT = all other"
 
 ```{r}
+#| echo: true
 table(head_recent$GEO_LEV)
 table(is.na(head_recent$GEO_LEV))
 ```
+
+mostly point - not useful info
 
 LOC_METHOD: Method of plot (re-)location,
 
@@ -458,7 +461,7 @@ Selecting:
 
 ```{r}
 h_t_s <- head_recent |>
-  filter(LOC_METHOD %in% c(1,3,4) | GEO_LEV == "GPS" | PRECISION <= 200) 
+  filter(LOC_METHOD %in% c(1,3,4) | GEO_LEV == "GPS" | PRECISION <= 100) 
 ```
 
 This leaves us with location and time vetted plots: n=
@@ -475,10 +478,9 @@ How to get grassland plots? COV_TREES and COV_HERBS is not available for all plo
 
 Not sure: Heide (81), succession, Sukzession
 
-code "sehr exten", "extensiv","intensiv", belongs to project 32, which is on Borstgrasrasen Selbstberasu gehört zu Projekt 69, Feuchtgrünlandflächen
-14 is gruenland_bayern. 
+code "sehr exten", "extensiv","intensiv", belongs to project 32, which is on Borstgrasrasen Selbstberasu gehört zu Projekt 69, Feuchtgrünlandflächen 14 is gruenland_bayern.
 
-```{r}
+```{r, echo=TRUE}
 grass_LU_codes <- c("1xMahd","1xMahd/Jahr", "2 x Mahd", "2xMahd", "2xMahd/Jahr", "Bachaue", "beiweidete W", "bew", 
   "beweidet","beweidete Wi", "Beweidung", "ext. pasture", "ext. Schaf", "extensiv", "gemaeht", 
   "grazing", "grazing donk", "grazing shee", "Hutung", "Juni-Mahd", "low intensity grazing",
@@ -488,15 +490,12 @@ grass_LU_codes <- c("1xMahd","1xMahd/Jahr", "2 x Mahd", "2xMahd", "2xMahd/Jahr",
   "sheep pasture","Standweide", "unbeweidet", "unbeweidet/k", "ungrazed", "Weide", "Weidfeld","Wiese", 
   "Ziege", "ziegenbeweid")
 
-# PROJECT_ID: 
+# Grassland PROJECT_ID: 
 PIDs <- c(69, 32, 14)
-
-# View(head[head$LAND_USE=="Sep-02" & !is.na(head$LAND_USE),])
-# View(head[head$PROJECT_ID==5 & !is.na(head$LAND_USE),])
-# View(head[head$PROJECT_ID==79,])
 ```
 
-Selecting all criteria together: 
+Selecting all criteria together:
+
 ```{r, echo=TRUE}
 data <- head %>%
   filter(LAND_USE %in% grass_LU_codes | PROJECT_ID %in% PIDs) |>
@@ -505,25 +504,32 @@ data <- head %>%
 
 data <- rbind(data, head[head$RS_PROJECT == "gruenland_bayern",])
 
+data <- data[-which(data$LOC_METHOD == 5),] # eliminating those that still have an unreliable location method
+
 ```
 
-Evaluation - this leaves us with suitable plots: n=
+***this leaves us with suitable plots: n=***
 
 ```{r}
 nrow(data)
 ```
 
-
 ```{r, echo=TRUE}
+
+table(data$LOC_METHOD)
 
 mapview(data, zcol="RS_PROJECT")
 
-table(sort(data$RS_PROJECT))
 
-barplot(table(data$LOC_METHOD))
+```
 
-table(data$PRECISION, data$LOC_METHOD)
+Apart from the gruenland_bayern data all other location methods are described in paper as "Permanently marked plot isolated (i.e. somewhere within the site)", which in the author's eyes is the most reliable location method...
 
-table(is.na(data$PRECISION))
+Before using selected data in the end, we need to think about column "MANIPULATE", whether the plot was part of a manipulative experiment ("Y") or not ("N") and whether that makes it still useful to us.
+
+```{r}
+#| echo: true
+table(is.na(data$MANIPULATE))
+table(data$MANIPULATE)
 
 ```
