@@ -21,6 +21,7 @@ library(kableExtra)
 library(dplyr)
 library(ggplot2)
 library(units)
+library(raster)
 ```
 
 
@@ -93,17 +94,15 @@ Interesting [page](https://www.bgr.bund.de/EN/Themen/Boden/Produkte/produktkatal
 
 -   NRW downloaded from https://www.opengeodata.nrw.de/produkte/geobasis/lm/akt/basis-dlm/
 
--   Sachsen downloaded from https://www.geodaten.sachsen.de/downloadbereich-basis-dlm-4168.html 
-
+-   Sachsen downloaded from https://www.geodaten.sachsen.de/downloadbereich-basis-dlm-4168.html
 
 to get:
 
 -   Rheinland-Pfalz kostenpflichtig https://lvermgeo.rlp.de/de/produkte/geotopografie/digitale-landschaftsmodelle-dlm/digitales-basislandschaftsmodell-basis-dlm/
 
-
 -   Schleswig-Holstein angefragt (kostenpflichtig)
 
--   Saarland fürchterliche Website 
+-   Saarland fürchterliche Website
 
 -   Bremen Anfrage gesendet (kostenpflichtig)
 
@@ -119,7 +118,7 @@ Vegetation categories are as follows:
 
 
 ```{r}
-dlm <- st_read(here("../data/Basisdaten/DLM/Thueringen/changed/full_DLM_f_relcat_exploHAI.gpkg"))
+dlm <- st_read(here("../data/Basisdaten/landscape/DLM/Thueringen/changed/full_DLM_f_relcat_exploHAI.gpkg"))
 
 ```
 
@@ -137,25 +136,66 @@ lookup_ordered %>% kbl() %>%
 ```
 
 
-Where there's no DLM available, we can use the Copernicus High resolution layer for grassland (10m) from 2018 and the Corine agriculture classification from 2018. 
+Where there's no DLM available, we can use the Copernicus High resolution layer for grassland (10m) from 2018 and the Corine agriculture classification from 2018.
 
-Best extract data for grassland and agricultural proportion for all plots, compare where we have data. 
+Best extract data for grassland and agricultural proportion for all plots, compare where we have data.
 
 
 ```{r}
+#| eval: false
 
-cp = here("../data/Basisdaten/landscape/Copernicus/Grassland_2018_Germany/")
+cp <- here("../data/Basisdaten/landscape/Copernicus/")
+
+# somehow there's an issue via terra and stars
+agri = raster::raster(paste0(cp, "/corine_agricultural_area_2018/cor_agri_2018.tif"))
+germany <- st_read(paste0(sap, "germany.gpkg"))
+
+ger <- st_transform(germany, crs(agri))
+
+agri_ger <- crop(agri, ger)
+agri_ger_m <- mask(agri_ger, ger)
+
+writeRaster(agri_ger_m, 
+            paste0(cp, "/corine_agricultural_area_2018/cor_agri_2018_ger.tif"), overwrite=T)
 
 
-agri = rast(paste0(cp, "/corine_agricultural_area_2018/cor_agri_2018.tif"))
+# make a mosaic of HRL grassland data tiles
+gf <- list.files(paste0(cp, "/Grassland_2018_Germany/GRA_2018_010m_de_03035_v010/GRA_2018_010m_de_03035_v010/DATA/"), pattern=".tif$", full.names=T)
 
-agri = rast("C:/Users/mleza/OneDrive/Documents/PhD/BEyond/data/Basisdaten/landscape/Copernicus/corine_agricultural_area_2018/cor_agri_2018.tif")
+grasslist <- lapply(seq(gf), function(i){
+  r <- raster(gf[i])
+})
 
-agri
+grasslist$fun <- max
+grass_ger <- do.call(mosaic, grasslist)
 
+
+grass_ger <- crop(grass_ger, ger)
+grass_ger_m <- mask(grass_ger, ger)
+
+
+# cls <- data.frame(ID=1, cover=c("grassland"))
+# levels(m) <- cls
+# is.factor(m)
+# m
+
+writeRaster(grass_ger_m, paste0(cp, "/Grassland_2018_Germany/grassland_ger_HRL.tif"), overwrite=T)
 ```
 
+```{r}
+cp <- here("../data/Basisdaten/landscape/Copernicus/")
 
+agri_ger <- raster(paste0(cp, "/corine_agricultural_area_2018/cor_agri_2018_ger.tif"))
+grass_ger <- raster::raster(paste0(cp, "/Grassland_2018_Germany/grassland_ger_HRL.tif"))
+```
+
+```{r}
+# get difference of agriculture and grassland HRL to receive actual agriculture
+agri <- agri_ger - grass_ger
+mapview(grass_ger_m)+
+  mapview(agri_ger)
+```
+
 
 # Abiotic niche
 
@@ -292,7 +332,7 @@ Bodenübersichtskarte 1:200.000, i.e. 1 cm = 0.2 km for whole Germany [from here
 
 [BGR](https://produktcenter.bgr.de/terraCatalog/DetailResult.do?fileIdentifier=154997F4-3C14-4A53-B217-8A7C7509E05F)
 
-![](BUEK200.png)
+![](BUEK200.png){width="189"}
 
 
 ```{r}
@@ -316,7 +356,7 @@ buek200_lscs$NAME[buek200_lscs$NAME=="Thüringer Becken und Randplatten"] <- "Th
 ```
 
 
-![](flaechenbodenform_erlaeuterung.png) aus [BUEK300](https://lbgr.brandenburg.de/sixcms/media.php/9/BGB-1-2_03_Kuehn_53-60.pdf)
+![](flaechenbodenform_erlaeuterung.png){width="466"} aus [BUEK300](https://lbgr.brandenburg.de/sixcms/media.php/9/BGB-1-2_03_Kuehn_53-60.pdf)
 
 
 ```{r}
@@ -394,48 +434,69 @@ Most explo plots belong to soil type Rendzina (RR), Niedermoor (HN), Parabrauner
 
 Soil types of the explo plots are well represented in the landscape - apart maybe from HNv, which although less, is still represented relatively well in the landscape.
 
-### Soil data to think about (To do \@ meeting)
+### Soil data to think about
 
-More soil parameters (pH, P content, ... ) modeled based on Grassland samples in GEMAS (Geochemical Mapping of Agricultural and Grazing Land Soil in Europe) data
-
-![GEMAS Grassland sampling sites](GEMAS_Grassland_samples.png)
-
-(1:18 000 000, though..). Here to compare with our study sites:
-
-![pH GEMAS](pH_GEMAS_resolution.png)
-
-More parameters [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/b5d4d9ab-153c-4c51-a19c-cc81a62f9b7b)
-
-![GEMAS Parameter, Indizes](GEMAS_Parameter_Indizes.png)
+There is also GEMAS data [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/b5d4d9ab-153c-4c51-a19c-cc81a62f9b7b)
 
 There is also many elements, like P, Ca, C (Total, Organic, Inorganic Carbon), Na, ... [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/1094c5fd-bd58-466e-a309-412bb7636eec)
 
-![Interesting Maps BGR](interesting_Maps_BGR.png){width="330"}
-
 somehow not able to download them in bulk...
 
-#### Use this dataset?!
+#### We're using:
 
-[EUROPEAN SOIL DATA CENTRE (ESDAC)](https://esdac.jrc.ec.europa.eu/resource-type/european-soil-database-soil-properties) data requested:
+[EUROPEAN SOIL DATA CENTRE (ESDAC)](https://esdac.jrc.ec.europa.eu/resource-type/european-soil-database-soil-properties)
 
 **Maps of Soil Chemical properties at European scale based on LUCAS 2009/2012 topsoil data**
 
-![](Ballabio_maps.png){width="638"}
-
 500m resolution
 
-![pH in H20 data (viridis) with HEG explo points](pH_example.png)
+those are available:
 
-those are available: 
+![](data_avail.png){width="452"}
 
-![](data_avail.png)
+
+```{r}
+#| eval: false
+path <- here("../data/Basisdaten/soil/ESDAC/chemical/")
+fp <- rev(list.files(path, full.names = T))
+rp <- list.files(fp, pattern=".tif$", full.names = T)
 
+chem <- rast(rp)
+germ_chem <- st_transform(germany, st_crs(chem))
+
+chem_ger <- crop(chem, germ_chem)
+chem_ger_m <- mask(chem_ger, germ_chem)
+
+chem_ger_m_proj <- project(chem_ger_m, crs(bioclim_ALB_UTM))
+
+writeRaster(chem_ger_m_proj,paste0(path, "/soil_chem_ger.grd"))
+
+
+
+# PHYSICAL 
+path <- here("../data/Basisdaten/soil/ESDAC/physical/")
+
+# get all the zip files
+zipF <- list.files(path = path, pattern = "*.zip", full.names = TRUE)
+
+# unzip all your files
+ldply(.data = zipF, .fun = unzip, exdir = outDir)
+```
+
+```{r}
+path <- here("../data/Basisdaten/soil/ESDAC/chemical/")
+soil_chem <- rast(paste0(path, "/soil_chem_ger.grd"))
+names(soil_chem)
+mapview(raster(chem_ger_m$CN), na.color="#00000000")
+
+```
+
 
 **European Soil Database v2.0**
 
-![](European_Soil_Database.png){width="495"}
+![](European_Soil_Database.png){width="286"}
 
-![](European_Soil_Database_II.png){width="405"}
+![](European_Soil_Database_II.png){width="288"}
 
 # human impact
 
@@ -465,6 +526,8 @@ ggplot(d_lui, aes(LUI, shannon))+
 
 ```
 
+
+Germany wide LUI by Lange et al. (Lange_22.pdf) and available in [webMap](https://ufz.maps.arcgis.com/apps/webappviewer/index.html?id=192195ae64534ff9ae655082b6145774) requested via Email.
 
 ## (patch history)
 

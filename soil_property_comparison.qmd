@@ -1,0 +1,169 @@
+---
+title: "comparing soil property data"
+format: html
+editor: visual
+theme: flatly
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
+```
+
+## Aim
+
+This document compares the ESDAC data to the data gathered at the EPs. For this, I'm using the dataset ID 31210 from the Soil abiotic (core) project's Soil Sampling Campaign 21 from BExis [Soil sampling campaign 2021, all experimental plots (EP), 0-10 cm - carbon and nitrogen concentrations](https://www.bexis.uni-jena.de/ddm/data/Showdata/31210) with the following variables:
+
+```{r}
+
+
+library(here)
+library(sf)
+library(mapview)
+library(dplyr)
+library(terra)
+library(ggplot2)
+```
+
+```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
+
+sdat <- read.csv(here("../data/BExis/31210_6_Dataset/31210_6_data.csv"))
+d_geo <- st_read(here("../data/16826_4.gpkg"))
+
+# add 0 where ID only contains 4 characters in d
+sdat$EP_Plotid[nchar(sdat$EP_Plotid) == 4] <- paste0(substring(sdat$EP_Plotid[nchar(sdat$EP_Plotid) == 4], 1,3), "0", 
+                                             substring(sdat$EP_Plotid[nchar(sdat$EP_Plotid) == 4], 4))
+
+# select only grassland 
+sdat <- sdat |>
+  filter(Type == "G")
+
+d_geo <- d_geo |>
+  select(c("shannon", "biomass_g", "ep"))
+
+sdat_geo <- merge(d_geo, sdat, by.x="ep", by.y="EP_Plotid")
+```
+
+```{r}
+names(sdat)[5:length(names(sdat))]
+mapview(sdat_geo, zcol="CN_ratio")
+
+```
+
+There is also a pH dataset from the abiotic soil core team with the dataset ID 31074 [Soil sampling campaign 2021, all experimental plots (EP), 0-10 cm - soil pH](https://www.bexis.uni-jena.de/ddm/data/Showdata/31074). "The soil pH was measured in a weak (0.01 M) calcium chloride solution using a pH meter." 
+
+```{r}
+
+pHdat <- read.csv(here("../data/BExis/31074_8_Dataset/31074_8_data.csv"))
+
+# add 0 where ID only contains 4 characters in d
+pHdat$EP_Plotid[nchar(pHdat$EP_Plotid) == 4] <- paste0(substring(pHdat$EP_Plotid[nchar(pHdat$EP_Plotid) == 4], 1,3), "0", 
+                                             substring(pHdat$EP_Plotid[nchar(pHdat$EP_Plotid) == 4], 4))
+# select only grassland 
+pHdat <- pHdat |>
+  filter(Type == "G") |>
+  select(c( "EP_Plotid","pH_1", "pH_2"))
+
+ph_sdat_geo <- merge(sdat_geo, pHdat, by.x="ep", by.y="EP_Plotid")
+
+```
+
+
+```{r}
+corrdat <- ph_sdat_geo |>
+  as.data.frame() |>
+  select(c(2,3,7:13))
+
+cmt <- psych::corr.test(corrdat, method="pearson")
+corrplot::corrplot(cmt$r, p.mat= cmt$p,
+                   method="number", 
+                   type="lower", 
+                   diag = F, 
+                   tl.col="black")
+
+
+```
+
+Get the ESDAC chemical data:
+
+-   pH (measured in H2O)
+
+-   pH (n CaCl2 0.01 M solution)
+
+-   Cation Exchange Capacity (CEC)
+
+-   Calcium carbonates (CaCO3)
+
+-   C:N ratio Nitrogen (N)
+
+-   Phosphorus (P)
+
+-   Potassium (K)
+
+```{r}
+#| fig-height: 9
+path <- here("../data/Basisdaten/soil/ESDAC/chemical/")
+soil_chem <- rast(paste0(path, "/soil_chem_ger.grd"))
+names(soil_chem)
+
+EP_chem <- extract(soil_chem, ph_sdat_geo)
+
+sdat_chem <- cbind(ph_sdat_geo, EP_chem)
+
+sdat_chem_corrdat <- sdat_chem |>
+  as.data.frame() |>
+  select(c(2,3,7:13, 15:23))
+
+cmt <- psych::corr.test(sdat_chem_corrdat, method="pearson")
+corrplot::corrplot(cmt$r, p.mat= cmt$p,
+                   method="number", 
+                   type="lower", 
+                   diag = F, 
+                   tl.col="black")
+
+```
+
+y axis contains data from ESDAC dataset (500m resolution), x axis contains data gathered by BE core team:
+
+```{r}
+#| layout-ncol:  2
+
+r <- cor(sdat_chem$CN, sdat_chem$CN_ratio, use = "pairwise.complete")
+t <- "CN ratio"
+ggplot(sdat_chem, aes(CN_ratio, CN))+
+  geom_point()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  xlab(paste0(t, " BEx"))+
+  ylab(paste0(t, " ESDAC"))+
+  theme_minimal()
+
+r <- cor(sdat_chem$Total_N, sdat_chem$N, use = "pairwise.complete")
+t <- "N"
+ggplot(sdat_chem, aes(Total_N, N))+
+  geom_point()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  theme_minimal()
+
+
+r <- cor(sdat_chem$pH_1, sdat_chem$pH_H2O_CaCl, use = "pairwise.complete")
+t <- "1st pH_H20_CaCl"
+ggplot(sdat_chem, aes(pH_1, pH_H2O_CaCl))+
+  geom_point()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  theme_minimal()
+
+r <- cor(sdat_chem$pH_2, sdat_chem$pH_H2O_CaCl, use = "pairwise.complete")
+t <- "2nd measurement pH_H20_CaCl"
+ggplot(sdat_chem, aes(pH_2, pH_H2O_CaCl))+
+  geom_point()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  theme_minimal()
+
+
+
+```

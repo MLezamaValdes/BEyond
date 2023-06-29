@@ -274,9 +274,10 @@ New Idea: Use sPlotOpen data together with explo data (n=972 data points) to mak
     -   climate
 
     -   LUI
-        - available as web-map service [here](https://ufz.maps.arcgis.com/apps/webappviewer/index.html?id=192195ae64534ff9ae655082b6145774) but how to download??
+
+        -   available as web-map service [here](https://ufz.maps.arcgis.com/apps/webappviewer/index.html?id=192195ae64534ff9ae655082b6145774) but how to download??
         -   Mowing events: https://zenodo.org/record/5571613 hat das schon jemand angefragt? years 2017 - 2020 available, the algorithm is available, though, for later years [paper](https://www.sciencedirect.com/science/article/pii/S0034425721005150#f0045)
-        -   LUI:[paper](https://www.sciencedirect.com/science/article/abs/pii/S0034425722000025) 
+        -   LUI:[paper](https://www.sciencedirect.com/science/article/abs/pii/S0034425722000025) results in online [viewer](https://ufz.maps.arcgis.com/apps/webappviewer/index.html?id=192195ae64534ff9ae655082b6145774) 
 
     -   satellite data (Marvin)
 
