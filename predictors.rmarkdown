@@ -22,6 +22,12 @@ library(dplyr)
 library(ggplot2)
 library(units)
 library(raster)
+
+dp <- "../data/"
+sap <- here(dp, "/studyarea")
+cp <- here("../data/Basisdaten/landscape/Copernicus/")
+germany <- st_read(paste0(sap, "germany.gpkg"))
+
 ```
 
 
@@ -100,9 +106,9 @@ to get:
 
 -   Rheinland-Pfalz kostenpflichtig https://lvermgeo.rlp.de/de/produkte/geotopografie/digitale-landschaftsmodelle-dlm/digitales-basislandschaftsmodell-basis-dlm/
 
--   Schleswig-Holstein angefragt (kostenpflichtig)
+-   Schleswig-Holstein angefragt (kostenpflichtig, soll zeitnah online zur Verfügung stehen)
 
--   Saarland fürchterliche Website
+-   Saarland fürchterliche Website (angefragt)
 
 -   Bremen Anfrage gesendet (kostenpflichtig)
 
@@ -118,6 +124,8 @@ Vegetation categories are as follows:
 
 
 ```{r}
+#| results: hide
+#| fig-keep: all
 dlm <- st_read(here("../data/Basisdaten/landscape/DLM/Thueringen/changed/full_DLM_f_relcat_exploHAI.gpkg"))
 
 ```
@@ -144,12 +152,10 @@ Best extract data for grassland and agricultural proportion for all plots, compa
 ```{r}
 #| eval: false
 
-cp <- here("../data/Basisdaten/landscape/Copernicus/")
 
 # somehow there's an issue via terra and stars
 agri = raster::raster(paste0(cp, "/corine_agricultural_area_2018/cor_agri_2018.tif"))
 germany <- st_read(paste0(sap, "germany.gpkg"))
-
 ger <- st_transform(germany, crs(agri))
 
 agri_ger <- crop(agri, ger)
@@ -174,26 +180,46 @@ grass_ger <- crop(grass_ger, ger)
 grass_ger_m <- mask(grass_ger, ger)
 
 
-# cls <- data.frame(ID=1, cover=c("grassland"))
-# levels(m) <- cls
-# is.factor(m)
-# m
 
 writeRaster(grass_ger_m, paste0(cp, "/Grassland_2018_Germany/grassland_ger_HRL.tif"), overwrite=T)
 ```
 
 ```{r}
+#| eval: false
+
 cp <- here("../data/Basisdaten/landscape/Copernicus/")
 
 agri_ger <- raster(paste0(cp, "/corine_agricultural_area_2018/cor_agri_2018_ger.tif"))
 grass_ger <- raster::raster(paste0(cp, "/Grassland_2018_Germany/grassland_ger_HRL.tif"))
+
+# get difference of agriculture and grassland HRL to receive actual agriculture
+mapview(grass_ger, na.color="#00000000")+
+  mapview(agri_ger, na.color="#00000000")
+
+agri_highres <- resample(agri_ger, grass_ger)
+writeRaster(agri_highres, paste0(cp, "/agri_HR.tif"), overwrite=T)
+
+agri_diff <- agri_highres - grass_ger
+rm(agri_highres)
+rm(grass_ger)
+rm(agri_ger)
+rm(agri_ger_m)
+gc()
+
+writeRaster(agri_diff, paste0(cp, "/agri_grass_diff.tif"), overwrite=T)
+rm(agri_diff)
+
 ```
 
 ```{r}
-# get difference of agriculture and grassland HRL to receive actual agriculture
-agri <- agri_ger - grass_ger
-mapview(grass_ger_m)+
-  mapview(agri_ger)
+cp <- here("../data/Basisdaten/landscape/Copernicus/")
+agri_diff <- raster(paste0(cp, "/agri_grass_diff.tif"))
+
+cls <- data.frame(ID=c(0,1), cover=c("grassland","agriculture"))
+levels(agri_diff) <- cls
+is.factor(agri_diff)
+agri_diff
+
 ```
 
 
@@ -203,9 +229,6 @@ mapview(grass_ger_m)+
 ```{r}
 #| warning: false
 #| results: hide
-
-dp <- "../data/"
-sap <- here(dp, "/studyarea")
 
 # explo geometries
 geo_exp <- st_read(here(sap, "all3explos.gpkg"))
@@ -222,44 +245,68 @@ d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
 ```
 
 
-## climate and weather
+## climate and weather 
 
-https://www.worldclim.org/data/bioclim.html Bioclim
+
+https://www.worldclim.org/data/bioclim.html Bioclim 1970-2000
 
 ![](bioclim_codes.png)
 
 
 ```{r, results='hide',fig.keep='all'}
-# climate data 
-list.dirs(here(dp, "/Basisdaten"), full.names = FALSE)
-
-bioclim_vars <- c("Ann_Mean_Temp", "Mean_Drnl_Rng", "Isotherm", 
-                  "Temp_Seas", "Max_T", "Min_T", "T_Ann_Rng", 
-                  "Mean_T_Wet", "Mean_T_Dry", "Mean_T_Warm", 
-                  "Mean_T_Cold", "Ann_Prec", "Prec_Wet", "Prec_Dry", "Prec_Seas", "Prec_Wet", "Prec_Dry", "Prec_Warm", "Prec_Cold")
+bioclim_vars <- c("Ann_Mean_Temp", 
+                  "Mean_Drnl_Rng", 
+                  "Isotherm", 
+                  "Temp_Seas", 
+                  "Max_T_Warm_M", 
+                  "Min_T_Cold_M", 
+                  "T_Ann_Rng", 
+                  "Mean_T_Wet_Q", 
+                  "Mean_T_Dry_Q", 
+                  "Mean_T_Warm_Q", 
+                  "Mean_T_Cold_Q", 
+                  "Ann_Prec", 
+                  "Prec_Wet_M", 
+                  "Prec_Dry_M", 
+                  "Prec_Seas", 
+                  "Prec_Wet_Q", 
+                  "Prec_Dry_Q", 
+                  "Prec_Warm_Q", 
+                  "Prec_Cold_Q")
 ```
 
 ```{r}
-bioclim_ALB_UTM <- rast(here(dp, "/Basisdaten/climate/bioclim_ALB_UTM.tif"))
-bioclim_ALB_weather_UTM <- rast(here(dp, "/Basisdaten/weather/bioclim_ALB_weather_UTM.tif"))
-```
-
-```{r, results='hide',fig.keep='all'}
-# weather data: 
-bioclim_ALB_weather_UTM <- rast(here(dp, "/Basisdaten/weather/ALB_bioclim-2021_UTM.tif"))
-names(bioclim_ALB_weather_UTM) <- bioclim_vars
+#| eval: false
+f <- list.files(here("../data/Basisdaten/climate/WorldClim/wc2_1_30s_bio/"), full.names=T)
 
-par(mfrow=c(3,3))
-lapply( seq(nlyr(bioclim_ALB_weather_UTM)), function(i) {
-  plot(bioclim_ALB_weather_UTM[[i]], main=names(bioclim_ALB_weather_UTM[[i]]))
-})
+f_order <- c(1, 10:19, 2:9)
+bioclim_vars[f_order]
+
+bioclim <- stack(f)
+names(bioclim) <- paste0(f_order, "_", bioclim_vars[f_order])
+
+bc_germ <- crop(bioclim, germany)
+bc_germ_m <- mask(bc_germ, germany)
+
+writeRaster(bc_germ_m, here("../data/Basisdaten/climate/GER_bioclim-1970-2000.grd"), overwrite=T)
 ```
 
+```{r}
+bioclim <- rast(here("../data/Basisdaten/climate/GER_bioclim-1970-2000.grd")) 
+
+plot(bioclim[[1:10]], title=names(bioclim[[1:10]]))
+plot(bioclim[[11:19]], title=names(bioclim[[11:19]]))
+
+```
+
+
 
 ## topography
 
 
 ```{r, results='hide',fig.keep='all'}
+#| eval: false
+
 top_ALB_UTM <- rast(here(dp, "/Basisdaten/topography/copernicus/ALB_top_UTM.tif"))
 
 par(mfrow=c(2,2))
@@ -270,10 +317,107 @@ lapply( seq(nlyr(top_ALB_UTM)), function(i) {
 ```
 
 
+### all of germany:
+
+E40N20 and E40N30 from copernicus, 25m resolution
+
+1.  elevation (DEM)
+
+2.  slope
+
+3.  aspect
+
+4.  roughness
+
+5.  TWI
+
+RUN FULL EXTENT WITH TIME:
+
+
+```{r}
+#| eval: false
+dirs <- grep(list.files(path=here("../data/Basisdaten/topography/copernicus/Cop_DEM_25/"), full.names=T), pattern='.zip$', invert=TRUE, value=TRUE)
+
+dem <- lapply(seq(2), function(i){
+  rast(list.files(dirs, pattern="TIF$", full.names = T)[i])
+})
+
+germany <- st_read(paste0(sap, "germany.gpkg"))
+germany_dem <- st_transform(germany, crs(dem[[1]]))
+
+
+dem_full <- do.call(mosaic, dem)
+dem_full_g <- crop(dem_full, germany_dem)
+dem_full_m <- mask(dem_full_g, germany_dem)
+
+
+# dem <- rast(here("../data/Basisdaten/topography/copernicus/dem_germany.grd"))
+
+# plot(dem[[1]])
+# e <- drawExtent()
+# dem <- crop(dem[[1]],e)
+# plot(dem)
+
+
+# following is taken from Jan's calc_topography function (version 10th of May 23): 
+# source(here("../LOEK-RS_Repo/BEyond/Calc_topography/calc_topography.R"))
+
+out_folder <- here("../data/Basisdaten/topography/copernicus/")
+temp_folder <- here("../data/Basisdaten/tmp/")
+resolution <- "25"
+landscape <- "GER"
+
+writeRaster(dem_full_m,  paste0(out_folder,"/", landscape, "_dem",resolution, ".tif"), overwrite=T)
+
+
+# calculate terrain indices
+slope <- terra::terrain(dem, v="slope", unit="degree")
+aspect <- terra::terrain(dem, v="aspect", unit="radians")
+roughness <- terra::terrain(dem, v="roughness")
+
+# convert aspect to eastness / northness
+northness <- cos(aspect)
+eastness <- sin(aspect)
+
+terrain_vars <- c(slope, roughness, northness, eastness)
+names(terrain_vars) <- paste0(landscape, "_" ,c("slope", "roughness", "northness", "eastness"))
+
+# export raster layers
+for(i in 1:terra::nlyr(terrain_vars)) {
+  terra::writeRaster(terrain_vars[[i]], paste0(out_folder, "/", names(terrain_vars[[i]]), resolution, ".tif"), overwrite=TRUE)
+}
+
+# calculate TWI
+# preprocess dem (fill sinks)
+whitebox::wbt_fill_depressions(dem = paste0(out_folder,"/", landscape, "_dem",resolution, ".tif"), 
+                     output = paste0(temp_folder,"/",landscape, "_dem_filled",resolution, ".tif"))
+
+# input for twi calculation
+whitebox::wbt_d_inf_flow_accumulation(input = paste0(temp_folder,"/",landscape, "_dem_filled",resolution, ".tif"),
+                            output = paste0(temp_folder,"/",landscape, "_sca",resolution, ".tif"),
+                            out_type = "Specific Contributing Area")
+# twi calculation
+whitebox::wbt_wetness_index(sca = paste0(temp_folder,"/",landscape, "_sca",resolution, ".tif"), 
+                  slope = paste0(out_folder,"/",landscape, "_slope",resolution, ".tif"), 
+                  output= paste0(out_folder,"/",landscape, "_twi",resolution, ".tif"))
+  
+```
+
+```{r}
+demf <- list.files(here("../data/Basisdaten/topography/copernicus/"), pattern="GER_", full.names=T)
+topo <- rast(demf)
+
+names(topo)[which(grepl("GER", names(topo)) == FALSE)] <- "GER_DEM_25"
+plot(topo, main=names(topo))
+
+```
+
+
 Choosing two extents for visualization of abiotic basis data together with reference shannon:
 
 
 ```{r}
+#| eval: false
 #| results: hide
 #| fig-keep: all
 
@@ -288,6 +432,7 @@ top_ALB_ex2 <- crop(top_ALB_UTM, ex_ext_2)
 ```
 
 ```{r}
+#| eval: false
 #| layout-ncol: 2
 
 pal <-  mapviewPalette("mapviewSpectralColors")
@@ -457,6 +602,9 @@ those are available:
 
 ```{r}
 #| eval: false
+
+
+# CHEMICAL 
 path <- here("../data/Basisdaten/soil/ESDAC/chemical/")
 fp <- rev(list.files(path, full.names = T))
 rp <- list.files(fp, pattern=".tif$", full.names = T)
@@ -472,22 +620,50 @@ chem_ger_m_proj <- project(chem_ger_m, crs(bioclim_ALB_UTM))
 writeRaster(chem_ger_m_proj,paste0(path, "/soil_chem_ger.grd"))
 
 
-
 # PHYSICAL 
 path <- here("../data/Basisdaten/soil/ESDAC/physical/")
-
-# get all the zip files
 zipF <- list.files(path = path, pattern = "*.zip", full.names = TRUE)
-
-# unzip all your files
 ldply(.data = zipF, .fun = unzip, exdir = outDir)
+
+fp <- list.files(path, full.names = T)
+rp <- list.files(fp, pattern=".tif$", full.names = T)
+
+r <- raster(rp[i])
+germany_r <- st_transform(germany, crs(r))
+
+phys <- sapply(seq(rp), function(i){
+  r <- raster(rp[i])
+  r <- crop(r,germany_r)
+})
+
+testex <- sapply(seq(phys), function(i){
+  try(compareRaster(phys[[1]],phys[[i]]))
+})
+
+phys <- stack(phys)
+
+phys_ger_m <- mask(phys, germany_r)
+
+writeRaster(phys_ger_m,paste0(path, "/soil_phys_ger.grd"))
+
+phys_ger_m <- rast(paste0(path, "/soil_phys_ger.grd"))
+
+phys_ger_m_proj <- project(phys_ger_m, crs(bioclim_ALB_UTM))
+
+writeRaster(phys_ger_m_proj,paste0(path, "/soil_chem_ger.grd"), overwrite=T)
 ```
 
 ```{r}
 path <- here("../data/Basisdaten/soil/ESDAC/chemical/")
 soil_chem <- rast(paste0(path, "/soil_chem_ger.grd"))
 names(soil_chem)
-mapview(raster(chem_ger_m$CN), na.color="#00000000")
+mapview(raster(soil_chem$CN), na.color="#00000000")
+
+
+path <- here("../data/Basisdaten/soil/ESDAC/physical/")
+soil_phys <- rast(paste0(path, "/soil_chem_ger.grd"))
+names(soil_phys)
+mapview(raster(soil_phys$Sand_eu23), na.color="#00000000")
 
 ```
 
