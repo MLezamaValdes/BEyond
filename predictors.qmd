@@ -79,7 +79,7 @@ soil properties
 
 Interesting [page](https://www.bgr.bund.de/EN/Themen/Boden/Produkte/produktkatalog_node_en.html;jsessionid=BAD9B7D166B97D4E4D6EB7DE291EE444.internet971) for germany-wide soil data
 
-# Landscape situation via Basis-DLM
+# (!) Landscape situation via Basis-DLM
 
 -   MV: kostenlos für wissenschaftliche Nutzung, bestellt über Formular, interne Nutzung
 
@@ -115,9 +115,9 @@ to get:
 
 [ATKIS-Objektartenkatalog Basis-DLM](https://www.adv-online.de/icc/extdeu/nav/a63/binarywriterservlet%3FimgUid%3D9201016e-7efa-8461-e336-b6951fa2e0c9%26uBasVariant%3D11111111-1111-1111-1111-111111111111)
 
-Vegetation categories are as follows:
+Vegetation categories are distributed in files as follows:
 
-![](ATKIS_vegetation.png)
+![](ATKIS_vegetation.png){width="390"}
 
 "rel_cat" is what I propose as relevant categories. The preparation of DLM data is in the qmd "Hypotheses_on_biodiversity_drivers.qmd"
 
@@ -213,7 +213,6 @@ agri_diff <- raster(paste0(cp, "/agri_grass_diff.tif"))
 
 cls <- data.frame(ID=c(0,1), cover=c("grassland","agriculture"))
 levels(agri_diff) <- cls
-is.factor(agri_diff)
 agri_diff
 
 ```
@@ -238,12 +237,11 @@ lsc_SEG <- st_read(here(sap, "landscape_SEG_UTM.gpkg"))
 d_geo <- st_read(paste0(dp, "16826_4.gpkg"))
 ```
 
-## climate and weather 
-
+## (!) climate and weather
 
 https://www.worldclim.org/data/bioclim.html Bioclim 1970-2000
 
-![](bioclim_codes.png)
+![](bioclim_codes.png){width="352"}
 
 ```{r, results='hide',fig.keep='all'}
 bioclim_vars <- c("Ann_Mean_Temp", 
@@ -266,7 +264,6 @@ bioclim_vars <- c("Ann_Mean_Temp",
                   "Prec_Warm_Q", 
                   "Prec_Cold_Q")
 ```
-
 
 ```{r}
 #| eval: false
@@ -292,6 +289,7 @@ plot(bioclim[[11:19]], title=names(bioclim[[11:19]]))
 
 ```
 
+To do: Add data from 2000 on
 
 ## topography
 
@@ -320,8 +318,6 @@ E40N20 and E40N30 from copernicus, 25m resolution
 4.  roughness
 
 5.  TWI
-
-RUN FULL EXTENT WITH TIME:
 
 ```{r}
 #| eval: false
@@ -359,6 +355,10 @@ landscape <- "GER"
 writeRaster(dem_full_m,  paste0(out_folder,"/", landscape, "_dem",resolution, ".tif"), overwrite=T)
 
 
+## RUN FROM HERE WITH TIME
+
+dem <- rast(paste0(out_folder,"/", landscape, "_dem",resolution, ".tif"))
+
 # calculate terrain indices
 slope <- terra::terrain(dem, v="slope", unit="degree")
 aspect <- terra::terrain(dem, v="aspect", unit="radians")
@@ -392,9 +392,10 @@ whitebox::wbt_wetness_index(sca = paste0(temp_folder,"/",landscape, "_sca",resol
   
 ```
 
+Displayed only a small extent of the raster available in the parent-folder: 
 
 ```{r}
-demf <- list.files(here("../data/Basisdaten/topography/copernicus/"), pattern="GER_", full.names=T)
+demf <- list.files(here("../data/Basisdaten/topography/copernicus/small_extent_GER_dem"), pattern="GER_", full.names=T)
 topo <- rast(demf)
 
 names(topo)[which(grepl("GER", names(topo)) == FALSE)] <- "GER_DEM_25"
@@ -402,67 +403,9 @@ plot(topo, main=names(topo))
 
 ```
 
-Choosing two extents for visualization of abiotic basis data together with reference shannon:
-
-```{r}
-#| eval: false
-#| results: hide
-#| fig-keep: all
-
-# plot(d_geo[d_geo$explrtr == "ALB", "shannon"])
-ex_ext_1 <- st_read(paste0(dp, "studyarea/ex_ext.shp"))
-ex_ext_2 <- st_read(paste0(dp, "studyarea/ex_ext_2.shp"))
-
-top_ALB_ex <- crop(top_ALB_UTM, ex_ext_1)
-top_ALB_ex2 <- crop(top_ALB_UTM, ex_ext_2)
-
-# bioclim variables are only 6 values for this extent, so doesn't really make sense
-```
-
-```{r}
-#| eval: false
-#| layout-ncol: 2
-
-pal <-  mapviewPalette("mapviewSpectralColors")
-
-mapview(d_geo[d_geo$explrtr == "ALB", "shannon"],
-        cex="shannon",
-        legend=TRUE, 
-        layer.name="shannon",
-        col.regions = pal(50),
-        map.types = "Esri.WorldImagery")+
-  mapview(ex_ext_1,
-          layer.name="extent1",
-          alpha.regions=0)+
-  mapview(as(top_ALB_ex, "Raster"), 
-          na.color="#00000000",
-          alpha.regions=1,
-          map.types = "Esri.WorldImagery")
-
-
-mapview(d_geo[d_geo$explrtr == "ALB", "shannon"],
-        cex="shannon",
-        legend=TRUE, 
-        layer.name="shannon",
-        col.regions = pal(50),
-        map.types = "Esri.WorldImagery")+
-  mapview(ex_ext_2,
-          layer.name="extent2",
-          alpha.regions=0)+
-  mapview(as(top_ALB_ex2, "Raster"), 
-          na.color="#00000000",
-          alpha.regions=1,
-          map.types = "Esri.WorldImagery")
-
-
-
-```
-
 ## Soil properties
 
-Bodenübersichtskarte 1:200.000, i.e. 1 cm = 0.2 km for whole Germany [from here](https://geoviewer.bgr.de/mapapps/resources/apps/bodenatlas/index.html?lang=de&tab=boedenDeutschlands)
-
-[BGR](https://produktcenter.bgr.de/terraCatalog/DetailResult.do?fileIdentifier=154997F4-3C14-4A53-B217-8A7C7509E05F)
+Bodenübersichtskarte 1:200.000, i.e. 1 cm = 0.2 km for whole Germany [from here](https://geoviewer.bgr.de/mapapps/resources/apps/bodenatlas/index.html?lang=de&tab=boedenDeutschlands) [BGR](https://produktcenter.bgr.de/terraCatalog/DetailResult.do?fileIdentifier=154997F4-3C14-4A53-B217-8A7C7509E05F)
 
 ![](BUEK200.png){width="189"}
 
@@ -491,6 +434,7 @@ buek200_lscs$NAME[buek200_lscs$NAME=="Thüringer Becken und Randplatten"] <- "Th
 ```{r}
 #| warning: false
 #| results: hide
+#| layout-ncol: 2
 dp <- "../data/"
 buek200_lscs <- st_read(here(dp, "/Basisdaten/soil/buek200_all_landscapes.gpkg"))
 st_agr(buek200_lscs) = "constant"
@@ -562,15 +506,7 @@ Most explo plots belong to soil type Rendzina (RR), Niedermoor (HN), Parabrauner
 
 Soil types of the explo plots are well represented in the landscape - apart maybe from HNv, which although less, is still represented relatively well in the landscape.
 
-### Soil data to think about
-
-There is also GEMAS data [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/b5d4d9ab-153c-4c51-a19c-cc81a62f9b7b)
-
-There is also many elements, like P, Ca, C (Total, Organic, Inorganic Carbon), Na, ... [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/1094c5fd-bd58-466e-a309-412bb7636eec)
-
-somehow not able to download them in bulk...
-
-#### We're using:
+#### ESDAC data
 
 [EUROPEAN SOIL DATA CENTRE (ESDAC)](https://esdac.jrc.ec.europa.eu/resource-type/european-soil-database-soil-properties)
 
@@ -649,6 +585,16 @@ mapview(raster(soil_phys$Sand_eu23), na.color="#00000000")
 
 ```
 
+Problem: ESDAC data don't really correspond to measured data from the Explos (see [soil property comparison file](soil_property_comparison.html))
+
+#### SoilGrids (Hengl)
+Getting 3 grids (covering the three exploratories) and comparing those too, see .qmd for html linked above.
+
+
+backup soil chemical data: There is also GEMAS data [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/b5d4d9ab-153c-4c51-a19c-cc81a62f9b7b) which contains many elements, like P, Ca, C (Total, Organic, Inorganic Carbon), Na, ... [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/1094c5fd-bd58-466e-a309-412bb7636eec) somehow not able to download them in bulk...
+
+### **! Soil Type**
+
 **European Soil Database v2.0**
 
 ![](European_Soil_Database.png){width="286"}
@@ -680,10 +626,12 @@ ggplot(d_lui, aes(LUI, shannon))+
   theme_minimal()+
   ggtitle("LUI x biodiversity", subtitle = paste0("n = ", nrow(d_lui[d_lui$year == "2013",])))
 
+lui_GER <- raster(list.files(here("../data/LUI/LUI_Germ_Lange/"), full.names = T))
+mapview(lui_GER, na.color="#00000000")
 ```
 
 Germany wide LUI by Lange et al. (Lange_22.pdf) and available in [webMap](https://ufz.maps.arcgis.com/apps/webappviewer/index.html?id=192195ae64534ff9ae655082b6145774) requested via Email.
 
 ## (patch history)
 
-# Satellite data
+# ! Satellite data
