@@ -11,7 +11,9 @@ knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
 
 ## Aim
 
-This document compares the ESDAC data to the data gathered at the EPs. For this, I'm using the dataset ID 31210 from the Soil abiotic (core) project's Soil Sampling Campaign 21 from BExis [Soil sampling campaign 2021, all experimental plots (EP), 0-10 cm - carbon and nitrogen concentrations](https://www.bexis.uni-jena.de/ddm/data/Showdata/31210) with the following variables:
+This document compares gridded soil data to the data gathered at the EPs.
+
+For this, I'm using the dataset ID 31210 from the Soil abiotic (core) project's Soil Sampling Campaign 21 from BExis [Soil sampling campaign 2021, all experimental plots (EP), 0-10 cm - carbon and nitrogen concentrations](https://www.bexis.uni-jena.de/ddm/data/Showdata/31210) with the following variables:
 
 ```{r}
 
@@ -51,7 +53,7 @@ mapview(sdat_geo, zcol="CN_ratio")
 
 ```
 
-There is also a pH dataset from the abiotic soil core team with the dataset ID 31074 [Soil sampling campaign 2021, all experimental plots (EP), 0-10 cm - soil pH](https://www.bexis.uni-jena.de/ddm/data/Showdata/31074). "The soil pH was measured in a weak (0.01 M) calcium chloride solution using a pH meter." 
+There is also a pH dataset from the abiotic soil core team with the dataset ID 31074 [Soil sampling campaign 2021, all experimental plots (EP), 0-10 cm - soil pH](https://www.bexis.uni-jena.de/ddm/data/Showdata/31074). "The soil pH was measured in a weak (0.01 M) calcium chloride solution using a pH meter."
 
 ```{r}
 
@@ -69,7 +71,6 @@ ph_sdat_geo <- merge(sdat_geo, pHdat, by.x="ep", by.y="EP_Plotid")
 
 ```
 
-
 ```{r}
 corrdat <- ph_sdat_geo |>
   as.data.frame() |>
@@ -84,6 +85,8 @@ corrplot::corrplot(cmt$r, p.mat= cmt$p,
 
 
 ```
+
+## ESDAC
 
 Get the ESDAC chemical data:
 
@@ -166,4 +169,73 @@ ggplot(sdat_chem, aes(pH_2, pH_H2O_CaCl))+
 
 
 
+```
+
+## SoilGrid.org data
+
+Downloaded N, pH and SOC, each with uncertainty for the three explo areas.
+
+```{r}
+folder <- here("../data/Basisdaten/soil/SoilGrids/same_size")
+
+heg <- rast(paste0(folder, "/HEG.grd"))
+seg <- rast(paste0(folder, "/SEG.grd"))
+alb <- rast(paste0(folder, "/ALB.grd"))
+
+
+extraction_template <- st_transform(ph_sdat_geo, crs(heg))
+
+extract_SoilGrids <- function(x){
+    out <- extract(x, extraction_template)
+    out <- cbind(extraction_template$ep, out)
+    out <- out[!is.na(out[,3]),]
+    names(out) <- paste0("SG_", c( "ep", "ID", "N", "N_unc", "pH", "pH_unc", "SOC", "SOG_unc"))
+    return(out)
+}
+
+heg_out <- extract_SoilGrids(heg)
+seg_out <- extract_SoilGrids(seg)
+alb_out <- extract_SoilGrids(alb)
+
+extraction_results <- rbind(heg_out, seg_out, alb_out)
+
+sdat_SG <- merge(ph_sdat_geo, extraction_results, by.x="ep", by.y="SG_ep")
+
+```
+
+```{r}
+#| layout-ncol:  2
+
+r <- cor(sdat_SG$SG_N, sdat_SG$Total_N, use = "pairwise.complete")
+t <- "N"
+ggplot(sdat_SG, aes(Total_N, SG_N, col=SG_N_unc))+
+  geom_point()+
+  scale_colour_viridis_c()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  xlab(paste0(t, " BEx"))+
+  ylab(paste0(t, " SoilGrids"))+
+  theme_minimal()
+
+r <- cor(sdat_SG$SG_pH, sdat_SG$pH_1, use = "pairwise.complete")
+t <- "pH"
+ggplot(sdat_SG, aes(pH_1, SG_pH, col=SG_pH_unc))+
+  geom_point()+
+  scale_colour_viridis_c()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  xlab(paste0(t, " BEx"))+
+  ylab(paste0(t, " SoilGrids"))+
+  theme_minimal()
+
+r <- cor(sdat_SG$Organic_C, sdat_SG$SG_SOC, use = "pairwise.complete")
+t <- "SOC"
+ggplot(sdat_SG, aes(Organic_C, SG_SOC, col=SG_SOG_unc))+
+  geom_point()+
+  scale_colour_viridis_c()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  xlab(paste0(t, " BEx"))+
+  ylab(paste0(t, " SoilGrids"))+
+  theme_minimal()
 ```

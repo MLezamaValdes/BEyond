@@ -1,0 +1,151 @@
+---
+title: "SoilGrids"
+author: "Maite"
+format: html
+editor: visual
+theme: flatly
+toc: true
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=F, warning = F)
+```
+
+## Get data for germany
+
+R download VRT (Virtual Raster) as specified on [this website](https://git.wur.nl/isric/soilgrids/soilgrids.notebooks/-/blob/master/markdown/webdav_from_R.md). Data structure online is [here](https://files.isric.org/soilgrids/latest/data/) and the explanation of the short names can be found under "Properties" [here](https://www.isric.org/explore/soilgrids/faq-soilgrids).
+
+Interesting for now:
+
+````         
+```         
+| name     | description                                      | mapped units | conversion factor to conventional units | conventional units |
+|-------------|-------------|-------------|---------------------|-------------|
+| clay     | Propotion clay particles in fine earth fraction  | g/kg         | 10                                      | g/100g (%)         |
+| nitrogen | total N                                          | cg/kg        | 100                                     | g/kg               |
+| phh2o    | Soil pH                                          | pHx10        | 10                                      | pH                 |
+| sand     | proportion sand particles in fine earth fraction | g/kg         | 10                                      | g/100g (%)         |
+| silt     | prop silt particles                              | g/kg         | 10                                      | g/100g (%)         |
+| soc      | soil org c in fine earth frac                    | dg/kg        | 10                                      | g/kg               |
+| ocd      | Organic carbon density                           | hg/m\^3      | 10                                      | kg/m\^3            |
+| ocs      | organic carbon stocks                            | t/ha         | 10                                      | kg/m\^2            |
+```
+````
+
+```{r}
+#| results: 'hide'
+#| fig.keep: 'all'
+
+library(terra)
+library(gdalUtilities)
+library(sf)
+library(here)
+
+dp <- "../data/"
+sap <- here(dp, "/studyarea")
+cp <- here("../data/Basisdaten/landscape/Copernicus/")
+germany <- st_read(paste0(sap, "germany.gpkg"))
+
+bb <- raster::extent(germany)[c(1,3,2,4)] #xmin,ymin,xmax,ymax
+crs <- crs(germany)
+
+
+sg_url="/vsicurl?max_retry=3&retry_delay=1&list_dir=no&url=https://files.isric.org/soilgrids/latest/data/"
+
+outDir <- here("../data/Basisdaten/soil/SoilGrids/")
+
+```
+
+```{r}
+#| eval: false
+
+# check whether bounding box needs to be put together differently 
+
+# get all possible combinations of 1:4
+gr <- as.data.frame( expand.grid(1:4, 1:4, 1:4, 1:4))
+all_in <- apply(gr, 1, function(x) all(c(1,2,3,4) %in% x) )
+gr_all_in <- gr[all_in,]
+
+
+check_all <- lapply(seq(nrow(gr_all_in)), function(i){
+  
+    v <- unlist(gr_all_in[i,])
+  
+    bb <- raster::extent(germany)[v]
+    
+    tryCatch(gdal_translate(paste0(sg_url,'ocs/ocs_0-30cm_mean.vrt'),
+        paste0(outDir, "/GER_ocs_mean.tif"),
+        tr=c(250,250),
+        projwin=bb,
+        projwin_srs=crs), 
+        error=function(e) {"doesn't work"})
+
+})
+
+any(check_all != "doesn't work")
+
+
+```
+
+Didn't work. Downloaded manually on SoilGrids.org:
+
+```{r}
+#| eval: false
+
+#### PREPARE RASTERS ##################################
+
+# downloaded pH first, that's smaller extent 
+folder <- here("../data/Basisdaten/soil/SoilGrids/same_size")
+
+
+# HEG
+hegfiles <- list.files(here("../data/Basisdaten/soil/SoilGrids/"), pattern="HEG", full.names = T)
+
+hegfileminex <- rast(list.files(here("../data/Basisdaten/soil/SoilGrids/"), pattern="HEG_pH.tif", full.names = T))
+
+heg <- lapply(seq(hegfiles), function(i){
+  r <- rast(hegfiles[[i]])
+  r <- crop(r, hegfileminex)
+  ext(r)
+  names(r)
+  writeRaster(r, paste0(here("../data/Basisdaten/soil/SoilGrids/same_size"), "/", names(r), ".grd"), overwrite=T)
+})
+
+heg_matchedfiles <- list.files(folder, pattern=".grd$", full.names=T)
+heg_matchedfiles <- heg_matchedfiles[grepl("HEG", heg_matchedfiles)]
+heg_matchedfiles <- heg_matchedfiles[!grepl("SoilGroup", heg_matchedfiles)]
+
+heg <- rast(heg_matchedfiles)
+writeRaster(heg, paste0(here("../data/Basisdaten/soil/SoilGrids/same_size"), "/HEG.grd"), overwrite=T)
+
+
+# for SEG 
+segfiles <- list.files(here("../data/Basisdaten/soil/SoilGrids/"), pattern="SEG", full.names = T)
+segfiles <- segfiles[!grepl("SoilGroup", segfiles)]
+
+SEG <- rast(segfiles)
+
+writeRaster(SEG, paste0(here("../data/Basisdaten/soil/SoilGrids/same_size"), "/SEG.grd"), overwrite=T)
+
+# ALB
+albfiles <- list.files(here("../data/Basisdaten/soil/SoilGrids/"), pattern="ALB", full.names = T)
+albfiles <- albfiles[!grepl("SoilGroup", albfiles)]
+
+ALB <- rast(albfiles)
+writeRaster(ALB, paste0(here("../data/Basisdaten/soil/SoilGrids/same_size"), "/ALB.grd"), overwrite=T)
+
+
+```
+
+Downloaded N, pH and SOC, each with uncertainty for the three explo areas.
+
+```{r}
+folder <- here("../data/Basisdaten/soil/SoilGrids/same_size")
+
+heg <- rast(paste0(folder, "/HEG.grd"))
+seg <- rast(paste0(folder, "/SEG.grd"))
+alb <- rast(paste0(folder, "/ALB.grd"))
+
+
+names(alb)
+```
