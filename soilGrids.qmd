@@ -149,3 +149,113 @@ alb <- rast(paste0(folder, "/ALB.grd"))
 
 names(alb)
 ```
+
+Using access via folder:
+
+
+
+This needs cleaning up and find out where the error is - there was a file online containing something like you need the .vrt and .vrt.ovr file and .... 
+
+```{r}
+require("RCurl") 
+library(XML)
+
+
+main <- "https://files.isric.org/soilgrids/latest/data/"
+
+result <- getURL(main,verbose=TRUE,ftp.use.epsv=TRUE, dirlistonly = TRUE)
+getHTMLLinks(result)
+
+
+siltpath <- paste0(main, "silt/")
+getHTMLLinks(getURL(siltpath))
+
+variable <- "silt"
+depth <- c("0-5cm", "5-15cm")
+parameter <- c("mean", "uncertainty")
+tiles <- paste0("tileSG-", c("005-058", "005-049", "006-047", "006-048", "006-049", "007-048", "007-049"))
+
+make_server_path <- function(variable, depth, parameter, tiles){
+  
+  parameterpath <- paste0(main, variable, "/", variable, "_", depth, "_", parameter, "/")
+  tilespaths <- paste0(parameterpath, tiles, "/")
+  
+  alltifpaths <- lapply(seq(tilespaths), function(i){
+    tifpaths <- getHTMLLinks(getURL(tilespaths[i]), xpQuery = "//a/@href[contains(., '.tif')]")
+    paste0(tilespaths[i], tifpaths)
+  })
+  
+  return(alltifpaths)
+}
+
+get_vrt_paths <- function(variable, depth, parameter){
+  
+  variablepath <- paste0(main, variable, "/")
+  vrtpaths <- getHTMLLinks(getURL(variablepath), xpQuery = "//a/@href[contains(., '.vrt')]")
+  
+  depth_select <- sapply(seq(depth), function(d){
+    vrtpaths[grep(depth[d], vrtpaths)]
+  })
+  
+  param_select <- sapply(seq(parameter), function(d){
+    depth_select[grep(parameter[d], depth_select)]
+  })
+  
+  return(paste0(main, variable, "/", param_select))
+    
+}
+
+serverpaths <- get_vrt_paths(variable <- "silt", depth <- c("0-5cm", "5-15cm"), 
+                           parameter <- c("mean", "uncertainty"))
+
+out_directory <- "C:/Users/mleza/OneDrive/Documents/PhD/BEyond/data/Basisdaten/soil/SoilGrids/vrts/"
+
+download_vrts <- function(serverpaths, variable, out_directory, parameter){
+  
+  outpath <- paste0(out_directory, variable, "/")
+  dir.create(outpath, recursive=TRUE)
+  
+  for(i in seq(serverpaths)){
+      outfile <- paste0(outpath, basename(serverpaths[i]))
+      download.file(url=serverpaths[i], destfile=outfile)
+  }
+  
+  print(i)
+
+}
+
+
+download_vrts(serverpaths = serverpaths, variable="silt", out_directory = out_directory)
+
+
+
+local_dst <- here("..data/Basisdaten/soil/SoilGrids/soilgrids_latest_data/")
+
+make_outpath <- function(local_dst, variable, depth, parameter, tiles){
+  paste0(local_dst, )
+}
+
+silt05 <- make_server_path(variable <- "silt", 
+         depth <- "0-5cm", 
+         parameter <- "mean", 
+         tiles <- paste0("tileSG-", c("005-058", "005-049", "006-047", "006-048", "006-049", "007-048", "007-049")))
+
+
+
+dst <- here("..data/Basisdaten/soil/SoilGrids/soilgrids_latest_data/")
+
+
+
+
+local_soilgridpath <- "C:/Users/mleza/OneDrive/Documents/PhD/BEyond/data/Basisdaten/soil/SoilGrids/soilgrids_latest_data/"
+
+outpath <- paste0(local_soilgridpath, sub(".*/data/", "", urlpath))
+dir.create(dirname(file.path(outpath)), recursive=TRUE)
+
+download.file(url=silt05[[1]][1], destfile=outpath)
+
+r <- rast(list.files(dirname(outpath), full.names = T))
+
+```
+
+

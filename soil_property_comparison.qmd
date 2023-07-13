@@ -33,9 +33,16 @@ library(ggplot2)
 sdat <- read.csv(here("../data/BExis/31210_6_Dataset/31210_6_data.csv"))
 d_geo <- st_read(here("../data/16826_4.gpkg"))
 
-# add 0 where ID only contains 4 characters in d
-sdat$EP_Plotid[nchar(sdat$EP_Plotid) == 4] <- paste0(substring(sdat$EP_Plotid[nchar(sdat$EP_Plotid) == 4], 1,3), "0", 
-                                             substring(sdat$EP_Plotid[nchar(sdat$EP_Plotid) == 4], 4))
+
+correct_ep_PlotID <- function(data, epID_Colname="EP_Plotid"){ # add 0 where ID only contains 4 characters in d
+  id <- data[epID_Colname][,1]
+  id[nchar(id) == 4] <- paste0(substring(id[nchar(id) == 4], 1,3), "0", 
+                                             substring(id[nchar(id) == 4], 4))
+  data[epID_Colname] <- id
+  return(data)
+}
+
+sdat <- correct_ep_PlotID(sdat)
 
 # select only grassland 
 sdat <- sdat |>
@@ -58,10 +65,8 @@ There is also a pH dataset from the abiotic soil core team with the dataset ID 3
 ```{r}
 
 pHdat <- read.csv(here("../data/BExis/31074_8_Dataset/31074_8_data.csv"))
+pHdat <- correct_ep_PlotID(pHdat)
 
-# add 0 where ID only contains 4 characters in d
-pHdat$EP_Plotid[nchar(pHdat$EP_Plotid) == 4] <- paste0(substring(pHdat$EP_Plotid[nchar(pHdat$EP_Plotid) == 4], 1,3), "0", 
-                                             substring(pHdat$EP_Plotid[nchar(pHdat$EP_Plotid) == 4], 4))
 # select only grassland 
 pHdat <- pHdat |>
   filter(Type == "G") |>
@@ -83,6 +88,17 @@ corrplot::corrplot(cmt$r, p.mat= cmt$p,
                    diag = F, 
                    tl.col="black")
 
+
+
+```
+
+Moreover, there is the [MinSoil 2017 Soil Sampling](https://www.bexis.uni-jena.de/ddm/data/Showdata/23886) from the Soil abiotic (core) team containing sand, silt and clay.
+
+```{r}
+texdat <- read.csv(here("../data/BExis/14686_10_Dataset/14686_10_data.csv"))
+texdat <- correct_ep_PlotID(texdat)
+
+texdat <- texdat[texdat$Type=="G",]
 
 ```
 
@@ -183,13 +199,17 @@ seg <- rast(paste0(folder, "/SEG.grd"))
 alb <- rast(paste0(folder, "/ALB.grd"))
 
 
+plot(seg$SEG_SOC)
+plot(heg$HEG_SOC)
+plot(alb$ALB_SOC)
+
 extraction_template <- st_transform(ph_sdat_geo, crs(heg))
 
 extract_SoilGrids <- function(x){
     out <- extract(x, extraction_template)
     out <- cbind(extraction_template$ep, out)
     out <- out[!is.na(out[,3]),]
-    names(out) <- paste0("SG_", c( "ep", "ID", "N", "N_unc", "pH", "pH_unc", "SOC", "SOG_unc"))
+    names(out) <- paste0("SG_", c( "ep", "ID", "N", "N_unc", "pH", "pH_unc", "SOC", "SOC_unc"))
     return(out)
 }
 
@@ -198,6 +218,12 @@ seg_out <- extract_SoilGrids(seg)
 alb_out <- extract_SoilGrids(alb)
 
 extraction_results <- rbind(heg_out, seg_out, alb_out)
+
+# applying correction factors
+extraction_results$SG_SOC <- extraction_results$SG_SOC / 10
+extraction_results$SG_N <- extraction_results$SG_N / 100
+extraction_results$SG_pH <- extraction_results$SG_pH / 10
+
 
 sdat_SG <- merge(ph_sdat_geo, extraction_results, by.x="ep", by.y="SG_ep")
 
@@ -217,8 +243,20 @@ ggplot(sdat_SG, aes(Total_N, SG_N, col=SG_N_unc))+
   ylab(paste0(t, " SoilGrids"))+
   theme_minimal()
 
+
+r <- cor(sdat_SG$Organic_C, sdat_SG$SG_SOC, use = "pairwise.complete")
+t <- "SOC"
+ggplot(sdat_SG, aes(Organic_C, SG_SOC, col=SG_SOC_unc))+
+  geom_point()+
+  scale_colour_viridis_c()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  xlab(paste0(t, " BEx"))+
+  ylab(paste0(t, " SoilGrids"))+
+  theme_minimal()
+
 r <- cor(sdat_SG$SG_pH, sdat_SG$pH_1, use = "pairwise.complete")
-t <- "pH"
+t <- "pH 1"
 ggplot(sdat_SG, aes(pH_1, SG_pH, col=SG_pH_unc))+
   geom_point()+
   scale_colour_viridis_c()+
@@ -228,9 +266,9 @@ ggplot(sdat_SG, aes(pH_1, SG_pH, col=SG_pH_unc))+
   ylab(paste0(t, " SoilGrids"))+
   theme_minimal()
 
-r <- cor(sdat_SG$Organic_C, sdat_SG$SG_SOC, use = "pairwise.complete")
-t <- "SOC"
-ggplot(sdat_SG, aes(Organic_C, SG_SOC, col=SG_SOG_unc))+
+r <- cor(sdat_SG$SG_pH, sdat_SG$pH_2, use = "pairwise.complete")
+t <- "pH 2"
+ggplot(sdat_SG, aes(pH_2, SG_pH, col=SG_pH_unc))+
   geom_point()+
   scale_colour_viridis_c()+
   ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
@@ -238,4 +276,122 @@ ggplot(sdat_SG, aes(Organic_C, SG_SOC, col=SG_SOG_unc))+
   xlab(paste0(t, " BEx"))+
   ylab(paste0(t, " SoilGrids"))+
   theme_minimal()
+
 ```
+
+pH doesn't look too good.. At the same time the correlation between the two BE pH measurements (below) is only about 0.5, so perhaps we might provey the pH signal better by pH predictors like soil depth, upslope area and bedrock or something like that? This could be a good use case for a latent variable in SEM (?)
+
+```{r}
+cor.test(sdat_SG$pH_2, sdat_SG$pH_1, use = "pairwise.complete")
+```
+
+In terms of N and SOC, SoilGrids totally fails for the Schorfheide Plots.
+
+```{r}
+r <- cor(sdat_SG$SG_N, sdat_SG$Total_N, use = "pairwise.complete")
+t <- "N"
+ggplot(sdat_SG, aes(Total_N, SG_N, col=SG_N_unc, label=ep))+
+  geom_point()+geom_text(hjust=0, vjust=0)+
+  scale_colour_viridis_c()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  xlab(paste0(t, " BEx"))+
+  ylab(paste0(t, " SoilGrids"))+
+  theme_minimal()
+
+
+r <- cor(sdat_SG$Organic_C, sdat_SG$SG_SOC, use = "pairwise.complete")
+t <- "SOC"
+ggplot(sdat_SG, aes(Organic_C, SG_SOC, col=SG_SOC_unc, label=ep))+
+  geom_point()+geom_text(hjust=0, vjust=0)+
+  scale_colour_viridis_c()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  xlab(paste0(t, " BEx"))+
+  ylab(paste0(t, " SoilGrids"))+
+  theme_minimal()
+
+r <- cor(sdat_SG$SG_pH, sdat_SG$pH_1, use = "pairwise.complete")
+t <- "pH 1"
+ggplot(sdat_SG, aes(pH_1, SG_pH, col=SG_pH_unc, label=ep))+
+  geom_point()+geom_text(hjust=0, vjust=0)+
+  scale_colour_viridis_c()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  xlab(paste0(t, " BEx"))+
+  ylab(paste0(t, " SoilGrids"))+
+  theme_minimal()
+
+r <- cor(sdat_SG$SG_pH, sdat_SG$pH_2, use = "pairwise.complete")
+t <- "pH 2"
+ggplot(sdat_SG, aes(pH_2, SG_pH, col=SG_pH_unc, label=ep))+
+  geom_point()+geom_text(hjust=0, vjust=0)+
+  scale_colour_viridis_c()+
+  ggtitle(t, subtitle  = paste0("r = ", round(r, digits=2)))+
+  geom_abline(slope=1, lty="dotted")+
+  xlab(paste0(t, " BEx"))+
+  ylab(paste0(t, " SoilGrids"))+
+  theme_minimal()
+
+```
+
+```{r}
+path <- here("../data/Basisdaten/soil/ESDAC/physical/")
+soil_phys <- rast(paste0(path, "/soil_phys_ger.grd"))
+phys_stars <- stars::st_as_stars(soil_phys)
+
+
+stars::st_as_stars()
+
+mapview(phys_stars[,,,7])+mapview(ph_sdat_geo)
+
+plot(soil_phys)
+
+
+lui <- read.csv(list.files(here("../data/LUI/LuiData/"), pattern=".txt$", full.names=T))
+
+# fix some things in LUI dataset to merge correctly 
+lui$year <- substring(lui$YEAR, 12,15)
+
+idshort <- lui$PLOTID[nchar(lui$PLOTID) == 4] 
+idshortfix <- paste0(substring(idshort, 1,3), "0", substring(idshort, 4,4))
+lui$PLOTID[nchar(lui$PLOTID) == 4]  <- idshortfix
+
+d_lui <- merge(d_geo, lui, by.x="ep", by.y="PLOTID")
+
+ml <- d_lui |> as.data.frame() |> 
+  select(-"geometry") |>
+  group_by(ep) |>
+  reframe(mean_LUI = mean(LUI))
+
+mm <- d_lui |> as.data.frame() |> 
+  select(-"geometry") |>
+  group_by(ep) |>
+  reframe(mean_mowing = mean(M_STD))
+
+sdat_lui <- merge(sdat_geo, ml, by="ep")
+sdat_lui <- merge(sdat_lui, mm, by="ep")
+
+r <- cor(sdat_lui$mean_LUI, sdat_lui$Organic_C, use = "pairwise.complete")
+ggplot(sdat_lui, aes(mean_LUI, Organic_C, label=ep))+
+  geom_point()+geom_text(hjust=0, vjust=0)+
+  scale_colour_viridis_c()+
+  ggtitle("LUI and Organic C", subtitle  = paste0("r = ", round(r, digits=2)))+
+  theme_minimal()
+
+
+r <- cor(sdat_lui$mean_LUI, sdat_lui$Organic_C, use = "pairwise.complete")
+ggplot(sdat_lui, aes(mean_mowing, Organic_C, label=ep))+
+  geom_point()+geom_text(hjust=0, vjust=0)+
+  scale_colour_viridis_c()+
+  ggtitle("Mowing and Organic C", subtitle  = paste0("r = ", round(r, digits=2)))+
+  theme_minimal()
+```
+
+Troubleshooting:
+
+Why is SEG falling out of the expected relation that much?
+
+Bodenart, Bodenfeuchte (weniger umgesetzt, mehr gespeichert), LUI could also be (grazing, mowing)
+
+Sand content - should have a negative relation, though...

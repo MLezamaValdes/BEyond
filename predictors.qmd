@@ -392,7 +392,7 @@ whitebox::wbt_wetness_index(sca = paste0(temp_folder,"/",landscape, "_sca",resol
   
 ```
 
-Displayed only a small extent of the raster available in the parent-folder: 
+Displayed only a small extent of the raster available in the parent-folder:
 
 ```{r}
 demf <- list.files(here("../data/Basisdaten/topography/copernicus/small_extent_GER_dem"), pattern="GER_", full.names=T)
@@ -588,8 +588,8 @@ mapview(raster(soil_phys$Sand_eu23), na.color="#00000000")
 Problem: ESDAC data don't really correspond to measured data from the Explos (see [soil property comparison file](soil_property_comparison.html))
 
 #### SoilGrids (Hengl)
-Getting 3 grids (covering the three exploratories) and comparing those too, see .qmd for html linked above.
 
+Getting 3 grids (covering the three exploratories) and comparing those too, see .qmd for html linked above.
 
 backup soil chemical data: There is also GEMAS data [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/b5d4d9ab-153c-4c51-a19c-cc81a62f9b7b) which contains many elements, like P, Ca, C (Total, Organic, Inorganic Carbon), Na, ... [here](https://geoportal.bgr.de/mapapps/resources/apps/geoportal/index.html?lang=de#/datasets/portal/1094c5fd-bd58-466e-a309-412bb7636eec) somehow not able to download them in bulk...
 
@@ -600,6 +600,10 @@ backup soil chemical data: There is also GEMAS data [here](https://geoportal.bgr
 ![](European_Soil_Database.png){width="286"}
 
 ![](European_Soil_Database_II.png){width="288"}
+
+### Soil depth: 
+
+downloaded from https://gdk.gdi-de.org/geonetwork/srv/eng/catalog.search#/metadata/faee466f-27c1-44c9-bcb8-3c2bec8b1116
 
 # human impact
 

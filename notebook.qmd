@@ -26,13 +26,11 @@ library(kableExtra)
 
 This [notebook](notebook.html) ([code](notebook.qmd)) keeps track of what is happening where in my scripts:
 
-[Predictor](predictors.html) ([code](predictors.qmd)) and [response](sPlotOpen.html) ([code](sPlotOpen.qmd)) datasets are prepared. In this context, the  [comparability](soil_property_comparison.html) ([code](soil_property_comparison.qmd)) of soil property data gathered by the Exploratorie's Core team and the spatial data source is explored. 
+[Predictor](predictors.html) ([code](predictors.qmd)) and [response](sPlotOpen.html) ([code](sPlotOpen.qmd)) datasets are prepared. In this context, the [comparability](soil_property_comparison.html) ([code](soil_property_comparison.qmd)) of soil property data gathered by the Exploratorie's Core team and the spatial data source is explored.
 
 An [explorative data analysis](Hypotheses_on_biodiversity_drivers.html) ([code](Hypotheses_on_biodiversity_drivers.qmd)) was performed based on hypotheses gathered on grassland biodiversity.
 
-A first multivariate [modelling test](modelling_test.html) ([code](modelling_test.qmd)) was performed. 
-
-
+A first multivariate [modelling test](modelling_test.html) ([code](modelling_test.qmd)) was performed.
 
 # Areas of interest - Exploratories design
 
@@ -211,16 +209,6 @@ germany <- st_read(paste0(sap, "germany.gpkg"))
 ```
 
 ```{r}
-
-mapview(plots_exp)+
-  # mapview(geo_exp)+
-  mapview(plots, col.regions="red4", size=1)+
-  mapview(germany, col.regions="beige")
-
-
-
-mapview(plots, zcol="Location_uncertainty")
-
 # table(plots$Location_uncertainty, plots$Dataset)
 
 loc_uncert_buf <- lapply(seq(plots), function(i){
@@ -278,32 +266,32 @@ New Idea: Use sPlotOpen data together with explo data (n=972 data points) to mak
 -   wahrscheinlich wichtig als Prädiktor: sand content, clay content (compare ESDAC), pH, TWI, organic C
 -   satellite data: mean NDVI, NDVI SD to gather history, MAX NDVI
 
+Meeting 12.07.
+
+-   explainable beispiel: pH oder Einflussgrößen von pH (Hengl z.B.)?
+
+-   soilgrids updates??
+
 ## Task list
 
 -   Get DLM for the remaining countries (Niedersachsen, NRW, Hessen, Rheinland-Pfalz, Sachsen, Schleswig-Holstein, Saarland)
 
--   for those that are not available: get grassland HRL and agriculture
+    -   for those that are not available: get grassland HRL and agriculture
 
 -   get data for entire Germany
 
-    -   soil (use chemical and physical data from ESDAC 500m resolution and check with records from Exploratories)
+    -   soil (use chemical and physical data from SoilGrids.org \[ESDAC 500m resolution\] and check with records from Exploratories)
 
-    -   terrain (get stuff Germany wide)
+        -   pH Werte / Bodenparameter vergleichen 500m Karte + Bodenparameter aus den Explos
 
-    -   climate
+        -   get clay content / ... physical parameters from Explos and compare with SoilGrids data
 
-    -   LUI
+    -   other optional stuff
 
-        -   available as web-map service [here](https://ufz.maps.arcgis.com/apps/webappviewer/index.html?id=192195ae64534ff9ae655082b6145774) but how to download??
         -   Mowing events: https://zenodo.org/record/5571613 hat das schon jemand angefragt? years 2017 - 2020 available, the algorithm is available, though, for later years [paper](https://www.sciencedirect.com/science/article/pii/S0034425721005150#f0045)
-        -   LUI:[paper](https://www.sciencedirect.com/science/article/abs/pii/S0034425722000025) results in online [viewer](https://ufz.maps.arcgis.com/apps/webappviewer/index.html?id=192195ae64534ff9ae655082b6145774)
 
     -   satellite data (Marvin)
 
--   pH Werte / Bodenparameter vergleichen 500m Karte + Bodenparameter aus den Explos
+-   use new dataset from iDiv
 
--   get clay content / ... physical parameters from Ballabio
-
--   check uncertainty in sPlotOpen (sPlot not public) and contact maybe Dr. Gabriella Damasceno gabriella.damasceno\@idiv.de)
-
--   research grassland species richness modelling germany
+-   research grassland species richness modelling Germany
